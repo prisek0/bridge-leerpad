@@ -184,7 +184,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
         bid('A42.H93.AB72.V82', 'S', [], '1D', 'Jij bent gever. Wat bied je?', '14 punten en je langste kleur is ruiten (vierkaart): 1♦. Geen 1SA, want daarvoor heb je 15-17 nodig.'),
       ], gen: [[genOpening(['one']), 5]] },
       { id: 'h5al3', title: 'De 1SA-opening', items: [
-        bid('AH4.HV9.B72.A852', 'S', [], '1NT', 'Jij bent gever. Wat bied je?', '16 punten en een SA-verdeling (3-3-3-4): 1SA.'),
+        bid('AH4.HV9.B72.A852', 'S', [], '1NT', 'Jij bent gever. Wat bied je?', '17 punten en een SA-verdeling (3-3-3-4): 1SA.'),
       ], gen: [[genBalanced, 4], [genOpening(['nt', 'one', 'nt']), 5]] },
     ],
   },
@@ -252,7 +252,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
         bid('HV8.B43.982.H543', 'N', ['1NT', 'P'], '2NT', 'Partner opent 1SA. Wat bied je?', '9 punten: samen 24-26. 2SA nodigt partner uit voor 3SA als hij geen minimum heeft.'),
       ], gen: [[genNTResponse, 6]] },
       { id: 'h7l2', title: 'Stayman', items: [
-        bid('HV87.B43.V82.H43', 'N', ['1NT', 'P'], '2C', 'Partner opent 1SA. Wat bied je?', 'Een vierkaart schoppen en 9 punten: vraag met 2♣ (Stayman) naar een vierkaart hoog.'),
+        bid('HV87.B43.V82.H43', 'N', ['1NT', 'P'], '2C', 'Partner opent 1SA. Wat bied je?', 'Een vierkaart schoppen en 11 punten: vraag met 2♣ (Stayman) naar een vierkaart hoog.'),
         mc('Je vroeg Stayman en partner antwoordt 2♦. Wat betekent dat?', ['Partner heeft geen vierkaart hoog', 'Partner heeft een vierkaart ruiten', 'Partner wil ruiten spelen'], 0, '2♦ is het afgesproken antwoord zonder vierkaart hoog.'),
         mc('Partner opende 1SA en heeft ♥ en ♠ allebei vier kaarten. Wat antwoordt partner op 2♣?', ['2♥', '2♠', '2♦'], 0, 'Van twee vierkaarten de laagste: 2♥.'),
       ], gen: [[genStaymanAnswer, 4], [genNTResponse, 3]] },
@@ -296,7 +296,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
         pickQ('De dummy (noord) speelt ♦3. Je bent oost. Welke kaart speel jij?', 'D', 'A852', '852', 'Tweede hand laag. Bewaar je aas voor de heer of vrouw van de leider.', { N: '963', E: 'A852', S: '?' }, [['N', '3']]),
         pickQ('Zuid speelt ♠4 naar de dummy (noord: ♠H72). Je bent west. Welke kaart speel jij?', 'S', 'A95', '95', 'Tweede hand laag: leg je aas niet. Speelt zuid de heer, dan heb je je aas nog voor later. Zo verdient de leider minder slagen.', { N: 'H72', W: 'A95', S: '?' }, [['S', '4']]),
         pickQ('Partner (west) komt uit met ♣5. De dummy legt ♣2. Welke kaart speel jij (oost)?', 'C', 'H96', 'H', 'Derde hand hoog: de heer.', { N: '842', E: 'H96', W: '?' }, [['W', '5'], ['N', '2']]),
-        pickQ('Zuid speelt ♥2 naar de dummy (noord: ♥V84). Je bent west. Welke kaart speel jij?', 'H', 'H73', '73', 'Tweede hand laag. Leg je de heer, dan wordt noords vrouw vrij. Bewaar je heer voor de vrouw.', { N: 'V84', W: 'H73', S: '?' }, [['S', '2']]),
+        pickQ('Zuid speelt ♥2 naar de dummy (noord: ♥V84). Je bent west. Welke kaart speel jij?', 'H', 'H73', '73', 'Tweede hand laag: ga niet met je heer op een kleine kaart. Partner zit nog achter noord, en jouw heer kan later een honneur van zuid vangen.', { N: 'V84', W: 'H73', S: '?' }, [['S', '2']]),
         mc('Wat bedoelen we met "tweede hand laag"?', ['Zit je direct na de speler die een kleine kaart voorspeelt, speel dan meestal laag', 'Speel altijd je laagste kaart', 'Partner moet laag spelen'], 0, 'Als tweede speler hoef je de slag meestal niet te winnen: je partner zit nog achter de leider.'),
       ] },
       { id: 'h9l2', title: 'Honneur op honneur', items: [
