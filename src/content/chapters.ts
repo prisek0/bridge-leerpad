@@ -79,7 +79,7 @@ export const chapters: Chapter[] = [
     theory: [
       { title: 'Vaste slagen', body: `Een **vaste slag** is een slag die je kunt maken zonder de slag eerst af te geven.\n\nMet A H V tegenover kleine kaarten heb je drie vaste slagen: je speelt ze gewoon na elkaar (**incasseren**).\n\nJe kunt nooit meer vaste slagen maken dan er kaarten in de langste hand zitten. Met A H tegenover V heb je maar twee vaste slagen.` },
       { title: 'Slagen ontwikkelen', body: `Met H V B tegenover kleine kaarten heb je nog geen vaste slag: de aas zit bij de tegenpartij. Speel de kleur toch! Na het afgeven van de aas zijn de andere honneurs vrij: twee slagen.\n\nDit heet **ontwikkelen** of **vrijspelen**.` },
-      { title: 'Lengteslagen', body: `Ook kleine kaarten kunnen slagen maken. Met A H 7 5 3 tegenover 6 4 2 hebben de tegenstanders vijf kaarten. Zitten die 3-2 verdeeld, dan hebben ze na drie keer de kleur niets meer. Jouw 7 en 5 zijn dan ook slagen: **lengteslagen**.` },
+      { title: 'Lengteslagen', body: `Ook kleine kaarten kunnen slagen maken. Met A H 7 5 3 tegenover 6 4 2 hebben de tegenstanders vijf kaarten. Zitten die 3-2 verdeeld, dan hebben ze na drie keer de kleur niets meer. De derde ronde geef je af, maar daarna zijn jouw 7 en 5 ook slagen: **lengteslagen**. Samen met A en H maak je zo vier slagen.` },
       { title: 'De korte hand eerst', body: `Speel eerst de honneurs van de **korte hand**. Met H 6 tegenover A V 4 2 speel je eerst de heer, daarna de 6 naar de A V. Zo blokkeer je de kleur niet.` },
       { title: 'Snijden', body: `Met A V tegenover kleine kaarten speel je **naar** de A V toe. Speelt West klein, dan leg je de vrouw. Zit de heer bij West, dan wint je vrouw de slag. Dat heet **snijden**.\n\nDe snit lukt als de ontbrekende honneur **vóór** je honneurs zit.` },
     ],
@@ -92,13 +92,13 @@ export const chapters: Chapter[] = [
       { id: 'h2l2', title: 'Ontwikkelen', items: [
         num('Hoeveel slagen kun je in deze kleur ontwikkelen?', 3, 'Je geeft de aas af. Daarna zijn H, V en B vrij: drie slagen.', { layout: { suit: 'S', N: 'HVB4', S: '752' } }),
         num('Hoeveel slagen kun je in deze kleur ontwikkelen?', 2, 'Je moet de aas én de heer afgeven. Daarna zijn de 10 en de 9 vrij: twee slagen.', { layout: { suit: 'H', N: 'VB109', S: '432' } }),
-        num('De kaarten van de tegenpartij zitten 3-2. Hoeveel slagen maak je in deze kleur?', 5, 'Na A, H en nog een ronde heeft de tegenpartij niets meer. Je 7 en 5 worden lengteslagen: samen vijf.', { layout: { suit: 'C', N: 'AH753', S: '642' } }),
+        num('De kaarten van de tegenpartij zitten 3-2. Hoeveel slagen maak je in deze kleur?', 4, 'Je maakt A en H, de derde ronde geef je af. Dan heeft de tegenpartij niets meer en worden je 7 en 5 lengteslagen: samen vier.', { layout: { suit: 'C', N: 'AH753', S: '642' } }),
         mc('Waarom speel je eerst een kleur waarin je de aas mist?', ['Om slagen te ontwikkelen zolang je nog controle hebt in de andere kleuren', 'Omdat dat verplicht is', 'Om de tegenpartij te laten troeven'], 0, 'Je geeft de aas het liefst vroeg af, terwijl je in de andere kleuren nog de hoge kaarten hebt.'),
       ], gen: [[genSureTricks, 3]] },
       { id: 'h2l3', title: 'De korte hand en snijden', items: [
         pickQ('Je bent zuid en aan slag. Met welke kaart begin je in deze kleur?', 'S', 'H6', 'H', 'Speel eerst de honneur van de korte hand (zuid heeft maar twee kaarten). Daarna de 6 naar noords A V.', { N: 'AV42', S: 'H6' }),
         pickQ('Je bent zuid en aan slag. Met welke kaart begin je?', 'H', 'V2', 'V', 'Zuid is de korte hand. Eerst de vrouw, daarna de 2 naar A H. Zo maak je drie slagen zonder blokkade.', { N: 'AH3', S: 'V2' }),
-        pickQ('Je speelt ♦2 vanuit zuid en west legt ♦5. Welke kaart leg je in de blinde (noord)?', 'D', 'AV', 'V', 'Snijden: leg de vrouw. Zit de heer bij west, dan wint je vrouw de slag.', { N: 'AV', S: '32', W: '?' }, [['S', '2'], ['W', '5']]),
+        pickQ('Je speelt ♦2 vanuit zuid en west legt ♦5. Welke kaart leg je in de dummy (noord)?', 'D', 'AV', 'V', 'Snijden: leg de vrouw. Zit de heer bij west, dan wint je vrouw de slag.', { N: 'AV', S: '32', W: '?' }, [['S', '2'], ['W', '5']]),
         mc('Je snijdt met A V in noord, gespeeld vanuit zuid. Waar moet de heer zitten om de snit te laten lukken?', ['Bij West', 'Bij Oost'], 0, 'West speelt vóór noord. Zit de heer bij west, dan wint je vrouw.'),
       ], gen: [[genSureTricks, 3]] },
     ],
@@ -108,21 +108,21 @@ export const chapters: Chapter[] = [
     id: 'h3', nr: '3', title: 'Het tegenspel', subtitle: 'Uitkomen en samenwerken', color: '#ce82ff',
     theory: [
       { title: 'Samenwerken', body: `Als tegenspelers zie je elkaars kaarten niet. Daarom maak je afspraken, zodat partner uit jouw kaarten kan afleiden wat je hebt.` },
-      { title: 'Uitkomen van een serie', body: `Je komt uit in je **beste kleur**. Heb je daarin een **serie** (twee of meer aaneengesloten kaarten, van de aas tot en met de 10), kom dan uit met de **hoogste** van de serie.\n\n- H V 9 → heer\n- V B 3 2 → vrouw\n- B 10 8 4 → boer\n\nStart je met een honneur, dan **beloof je de kaart er direct onder**: de heer belooft de vrouw, de vrouw belooft de boer.\n\nDat geldt ook binnen de kleur: met H B 10 6 4 start je met de boer (die belooft de 10), met A V B 2 met de vrouw.` },
-      { title: 'Uitkomen zonder serie', body: `Geen serie? Dan zegt de **hoogte van je kaart** iets tegen partner:
+      { title: 'Uitkomen van een serie', body: `Je komt uit in je **beste kleur**. Begint die kleur met een **serie** (twee of meer aaneengesloten kaarten vanaf je **hoogste kaart**, van de aas tot en met de 10), kom dan uit met de **hoogste** van de serie.\n\n- H V 9 → heer\n- V B 3 2 → vrouw\n- B 10 8 4 → boer\n\nStart je met een honneur, dan **beloof je de kaart er direct onder**: de heer belooft de vrouw, de vrouw belooft de boer.\n\nEen serie **lager in de kleur** telt niet. Met H B 10 6 4 of A V B 2 heb je geen serie vanaf je hoogste kaart: dan kom je klein uit.` },
+      { title: 'Uitkomen zonder serie', body: `Geen serie vanaf je hoogste kaart? Dan zegt de **hoogte van je kaart** iets tegen partner:
 
 - **Met een honneur** in de kleur kom je uit met een **lage kaart**: V 8 7 3 2 → 2 of 3.
 - **Zonder honneur** kom je uit met een **hoge kaart**: 8 7 3 2 → 8 of 7.
 
 Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Een hoge kaart onder de 10 zegt: hier heb ik niets.` },
-      { title: 'De derde man doet wat hij kan', body: `Komt partner uit met een kleine kaart en ligt er bij de blinde niets hoogs, speel dan als derde hand **zo hoog als nodig**. Je probeert de slag te winnen, of de leider te dwingen een hoge kaart te gebruiken.` },
+      { title: 'De derde man doet wat hij kan', body: `Komt partner uit met een kleine kaart en ligt er bij de dummy niets hoogs, speel dan als derde hand **zo hoog als nodig**. Je probeert de slag te winnen, of de leider te dwingen een hoge kaart te gebruiken.` },
     ],
     lessons: [
       { id: 'h3l1', title: 'Uitkomen', items: [
         pickQ('Je komt uit in schoppen. Met welke kaart start je?', 'S', 'HV87', 'H', 'H V is een serie: start met de hoogste, de heer. Die belooft de vrouw.'),
         pickQ('Je komt uit in ruiten. Met welke kaart start je?', 'D', 'VB32', 'V', 'Ook van een korte serie start je met de hoogste: de vrouw.'),
-        pickQ('Je komt uit in harten. Met welke kaart start je?', 'H', 'HB1064', 'B', 'B 10 is een serie binnen de kleur. De boer belooft de 10.'),
-        pickQ('Je komt uit in klaveren. Met welke kaart start je?', 'C', 'AVB2', 'V', 'V B is een serie. Start met de vrouw, die belooft de boer.'),
+        pickQ('Je komt uit in harten. Met welke kaart start je?', 'H', 'HB1064', '46', 'B 10 telt niet als serie: die begint niet bij je hoogste kaart. Je hebt wel honneurs, dus kom klein uit: de 4 of de 6.'),
+        pickQ('Je komt uit in klaveren. Met welke kaart start je?', 'C', 'AVB2', '2', 'V B telt niet als serie: die begint niet bij je hoogste kaart (de aas). Met honneurs zonder serie kom je klein uit: de 2.'),
         pickQ('Je komt uit in schoppen. Met welke kaart start je?', 'S', 'V8732', '32', 'Geen serie, wel een honneur (de vrouw): kom uit met een lage kaart, de 2 of de 3.'),
         pickQ('Je komt uit in harten. Met welke kaart start je?', 'H', '8732', '87', 'Geen honneur in de kleur: kom uit met een hoge kaart, de 8 of de 7. Zo weet partner dat je hier niets hebt.'),
         mc('Partner (noord) komt uit. Wat weet je?', ['Partner heeft een honneur in de kleur', 'Partner heeft geen honneur in de kleur', 'Partner heeft maar één kaart'], 0, 'Met een honneur zonder serie kom je uit met een lage kaart.', { played: [{ seat: 'N', card: { suit: 'S', rank: 2 } }] }),
@@ -130,9 +130,9 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
         mc('Partner start met de heer. Wat weet je nu?', ['Partner heeft ook de vrouw', 'Partner heeft de aas', 'Partner heeft geen andere honneurs'], 0, 'Een honneur belooft de kaart direct eronder: de heer belooft de vrouw.'),
       ], gen: [[genLead, 4]] },
       { id: 'h3l2', title: 'Derde hand', items: [
-        pickQ('Partner (west) start met ♠2. De blinde legt ♠4. Welke kaart speel jij (oost)?', 'S', 'H103', 'H', 'De derde man doet wat hij kan: speel de heer. Zo win je de slag of dwing je de aas eruit.', { N: '864', E: 'H103', W: '?' }, [['W', '2'], ['N', '4']]),
-        pickQ('Partner (west) start met ♥3. De blinde legt ♥6. Welke kaart speel jij (oost)?', 'H', 'V94', 'V', 'Derde hand hoog: speel de vrouw. Met de 9 geef je de leider een goedkope slag.', { N: '762', E: 'V94', W: '?' }, [['W', '3'], ['N', '6']]),
-        pickQ('Partner (west) start met de ♦H. De blinde legt ♦4. Welke kaart speel jij?', 'D', '852', '852', 'Partner heeft de heer gestart en belooft de vrouw: die slag is voor jullie. Geen reden om hoog te spelen: leg een kleintje.', { N: '764', E: '852', W: '?' }, [['W', 'H'], ['N', '4']]),
+        pickQ('Partner (west) start met ♠2. De dummy legt ♠4. Welke kaart speel jij (oost)?', 'S', 'H103', 'H', 'De derde man doet wat hij kan: speel de heer. Zo win je de slag of dwing je de aas eruit.', { N: '864', E: 'H103', W: '?' }, [['W', '2'], ['N', '4']]),
+        pickQ('Partner (west) start met ♥3. De dummy legt ♥6. Welke kaart speel jij (oost)?', 'H', 'V94', 'V', 'Derde hand hoog: speel de vrouw. Met de 9 geef je de leider een goedkope slag.', { N: '762', E: 'V94', W: '?' }, [['W', '3'], ['N', '6']]),
+        pickQ('Partner (west) start met de ♦H. De dummy legt ♦4. Welke kaart speel jij?', 'D', '852', '852', 'Partner heeft de heer gestart en belooft de vrouw: die slag is voor jullie. Geen reden om hoog te spelen: leg een kleintje.', { N: '764', E: '852', W: '?' }, [['W', 'H'], ['N', '4']]),
       ], gen: [[genLead, 3]] },
     ],
   },
@@ -143,7 +143,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
       { title: 'Punten tellen', body: `Om je hand te beoordelen tel je **punten**:\n\n- Aas = 4\n- Heer = 3\n- Vrouw = 2\n- Boer = 1\n\nIn het hele spel zitten 40 punten. Gemiddeld heeft iedere speler er dus 10.` },
       { title: 'De biedladder', body: `Een bod is een **niveau** (1 t/m 7) plus een **speelsoort**. De volgorde van laag naar hoog is ♣ ♦ ♥ ♠ SA.\n\nIeder volgend bod moet hoger zijn dan het vorige. Je mag ook **passen**. Na drie keer pas achter elkaar is de bieding klaar.\n\nHet niveau plus zes is het aantal slagen dat je moet halen: in 2♥ moet je 8 slagen maken.` },
       { title: 'Manche', body: `Sommige contracten leveren een grote premie op: de **manche**.\n\n- 3SA (9 slagen)\n- 4♥ of 4♠ (10 slagen)\n- 5♣ of 5♦ (11 slagen)\n\nMet **25 punten** samen heb je een goede kans op een manche. Lagere contracten heten een **deelscore**.` },
-      { title: 'Leider en blinde', body: `De speler die de speelsoort van het contract **als eerste** noemde, wordt de **leider**. Zijn partner is de **blinde**: die legt zijn kaarten open op tafel.\n\nDe speler **links** van de leider komt uit.` },
+      { title: 'Leider en dummy', body: `De speler die de speelsoort van het contract **als eerste** noemde, wordt de **leider**. Zijn partner is de **dummy**: die legt zijn kaarten open op tafel.\n\nDe speler **links** van de leider komt uit.` },
       { title: 'De telling', body: `Per gehaalde slag boven de zes krijg je:\n\n- ♣ en ♦: 20 punten\n- ♥ en ♠: 30 punten\n- SA: 40 voor de eerste, daarna 30\n\nKom je samen op 100 of meer, dan is het een manche. Haal je je contract niet, dan ben je **down** en krijgt de tegenpartij punten.` },
     ],
     lessons: [
@@ -267,7 +267,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
   {
     id: 'h8', nr: '8', title: 'Het speelplan', subtitle: 'Eerst denken, dan spelen', color: '#ce82ff',
     theory: [
-      { title: 'Vier stappen', body: `Voordat je als leider de eerste kaart uit de blinde speelt, maak je een plan:\n\n- **1.** Tel je **vaste slagen**.\n- **2.** Reken uit hoeveel slagen je **tekortkomt**.\n- **3.** Bedenk **hoe** je die extra slagen ontwikkelt (vrijspelen, lengteslagen, snijden).\n- **4.** **Voer** het plan uit (denk aan: de korte hand eerst).` },
+      { title: 'Vier stappen', body: `Voordat je als leider de eerste kaart uit de dummy speelt, maak je een plan:\n\n- **1.** Tel je **vaste slagen**.\n- **2.** Reken uit hoeveel slagen je **tekortkomt**.\n- **3.** Bedenk **hoe** je die extra slagen ontwikkelt (vrijspelen, lengteslagen, snijden).\n- **4.** **Voer** het plan uit (denk aan: de korte hand eerst).` },
       { title: 'Een kleur kiezen', body: `Ontwikkel de kleur die de meeste extra slagen oplevert. Een kleur als H V B 10 levert na het afgeven van de aas drie slagen op. Speel die kleur vroeg, zolang je in de andere kleuren nog controle hebt.` },
     ],
     lessons: [
@@ -293,16 +293,16 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
     ],
     lessons: [
       { id: 'h9l1', title: 'Tweede en derde hand', items: [
-        pickQ('De blinde (noord) speelt ♦3. Je bent oost. Welke kaart speel jij?', 'D', 'A852', '852', 'Tweede hand laag. Bewaar je aas voor de heer of vrouw van de leider.', { N: '963', E: 'A852', S: '?' }, [['N', '3']]),
-        pickQ('Zuid speelt ♠4 naar de blinde (noord: ♠H72). Je bent west. Welke kaart speel jij?', 'S', 'A95', '95', 'Tweede hand laag: leg je aas niet. Speelt zuid de heer, dan heb je je aas nog voor later. Zo verdient de leider minder slagen.', { N: 'H72', W: 'A95', S: '?' }, [['S', '4']]),
-        pickQ('Partner (west) komt uit met ♣5. De blinde legt ♣2. Welke kaart speel jij (oost)?', 'C', 'H96', 'H', 'Derde hand hoog: de heer.', { N: '842', E: 'H96', W: '?' }, [['W', '5'], ['N', '2']]),
-        pickQ('Zuid speelt ♥2 naar de blinde (noord: ♥V84). Je bent west. Welke kaart speel jij?', 'H', 'H73', '73', 'Tweede hand laag. Leg je de heer, dan wordt noords vrouw vrij. Bewaar je heer voor de vrouw.', { N: 'V84', W: 'H73', S: '?' }, [['S', '2']]),
+        pickQ('De dummy (noord) speelt ♦3. Je bent oost. Welke kaart speel jij?', 'D', 'A852', '852', 'Tweede hand laag. Bewaar je aas voor de heer of vrouw van de leider.', { N: '963', E: 'A852', S: '?' }, [['N', '3']]),
+        pickQ('Zuid speelt ♠4 naar de dummy (noord: ♠H72). Je bent west. Welke kaart speel jij?', 'S', 'A95', '95', 'Tweede hand laag: leg je aas niet. Speelt zuid de heer, dan heb je je aas nog voor later. Zo verdient de leider minder slagen.', { N: 'H72', W: 'A95', S: '?' }, [['S', '4']]),
+        pickQ('Partner (west) komt uit met ♣5. De dummy legt ♣2. Welke kaart speel jij (oost)?', 'C', 'H96', 'H', 'Derde hand hoog: de heer.', { N: '842', E: 'H96', W: '?' }, [['W', '5'], ['N', '2']]),
+        pickQ('Zuid speelt ♥2 naar de dummy (noord: ♥V84). Je bent west. Welke kaart speel jij?', 'H', 'H73', '73', 'Tweede hand laag. Leg je de heer, dan wordt noords vrouw vrij. Bewaar je heer voor de vrouw.', { N: 'V84', W: 'H73', S: '?' }, [['S', '2']]),
         mc('Wat bedoelen we met "tweede hand laag"?', ['Zit je direct na de speler die een kleine kaart voorspeelt, speel dan meestal laag', 'Speel altijd je laagste kaart', 'Partner moet laag spelen'], 0, 'Als tweede speler hoef je de slag meestal niet te winnen: je partner zit nog achter de leider.'),
       ] },
       { id: 'h9l2', title: 'Honneur op honneur', items: [
-        pickQ('De blinde (noord) speelt de ♥V. Je bent oost. Welke kaart speel jij?', 'H', 'H62', 'H', 'Honneur op honneur: dek de vrouw met je heer. Dan moet de leider zijn aas gebruiken en kan een kaart van partner promoveren.', { N: 'V73', E: 'H62', S: '?' }, [['N', 'V']]),
-        pickQ('De blinde (noord) speelt de ♠V. Je bent oost. Welke kaart speel jij?', 'S', 'H52', '52', 'Noord heeft ook nog B, 10 en 9: na je heer zijn die allemaal vrij. Er kan bij jullie niets promoveren, dus dekken heeft geen zin.', { N: 'VB109', E: 'H52', S: '?' }, [['N', 'V']]),
-        pickQ('Zuid speelt de ♣B voor. De blinde (noord) heeft ♣A94. Je bent west. Welke kaart speel jij?', 'C', 'V63', 'V', 'Honneur op honneur: dek de boer met je vrouw. Noord moet dan de aas gebruiken, en partners 10 kan een slag worden.', { N: 'A94', W: 'V63', S: '?' }, [['S', 'B']]),
+        pickQ('De dummy (noord) speelt de ♥V. Je bent oost. Welke kaart speel jij?', 'H', 'H62', 'H', 'Honneur op honneur: dek de vrouw met je heer. Dan moet de leider zijn aas gebruiken en kan een kaart van partner promoveren.', { N: 'V73', E: 'H62', S: '?' }, [['N', 'V']]),
+        pickQ('De dummy (noord) speelt de ♠V. Je bent oost. Welke kaart speel jij?', 'S', 'H52', '52', 'Noord heeft ook nog B, 10 en 9: na je heer zijn die allemaal vrij. Er kan bij jullie niets promoveren, dus dekken heeft geen zin.', { N: 'VB109', E: 'H52', S: '?' }, [['N', 'V']]),
+        pickQ('Zuid speelt de ♣B voor. De dummy (noord) heeft ♣A94. Je bent west. Welke kaart speel jij?', 'C', 'V63', 'V', 'Honneur op honneur: dek de boer met je vrouw. Noord moet dan de aas gebruiken, en partners 10 kan een slag worden.', { N: 'A94', W: 'V63', S: '?' }, [['S', 'B']]),
         mc('Waarom dek je een honneur met een honneur?', ['Zodat een lagere kaart van jullie kan promoveren', 'Omdat je dan altijd de slag wint', 'Omdat het een spelregel is'], 0, 'De leider moet twee honneurs gebruiken voor één slag. Daardoor kan een lagere kaart van jou of partner een slag worden.'),
         mc('Je bent leider in 4♥ en hebt alle hoge troeven. Wat doe je meestal eerst?', ['Troef trekken', 'Je azen in de bijkleuren incasseren', 'Een kleine kaart afgeven'], 0, 'Eerst troef trekken, dan kan de tegenpartij je hoge kaarten niet meer introeven.'),
       ] },

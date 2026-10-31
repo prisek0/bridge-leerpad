@@ -73,7 +73,7 @@ export function HandRows({ hand, title }: { hand: Hand; title?: string }) {
 export function TwoHands({ N, S }: { N: Hand; S: Hand }) {
   return (
     <div className="twohands">
-      <HandRows hand={N} title="Noord (blinde)" />
+      <HandRows hand={N} title="Noord (dummy)" />
       <HandRows hand={S} title="Zuid (jij)" />
     </div>
   )

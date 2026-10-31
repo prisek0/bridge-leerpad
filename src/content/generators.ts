@@ -297,14 +297,14 @@ export const genPlanCount: Generator = () => {
 }
 
 /**
- * Uitkomen: de hoogste van een serie (tot en met de 10); zonder serie met een
- * honneur een lage kaart, zonder honneur de hoogste kaart.
+ * Uitkomen: de hoogste van een serie vanaf je hoogste kaart (tot en met de 10);
+ * anders met een honneur een lage kaart, zonder honneur een hoge middenkaart.
  */
 export const genLead: Generator = () => {
   const kind = pick(['seq', 'seq', 'low', 'high'] as const)
   const pools: Record<typeof kind, [string, string][]> = {
-    seq: [['HV9', 'H'], ['HV87', 'H'], ['VB32', 'V'], ['VB10', 'V'], ['B1084', 'B'], ['HB1064', 'B'], ['AVB2', 'V'], ['HVB4', 'H'], ['AH74', 'A'], ['AHV3', 'A'], ['B1072', 'B']],
-    low: [['V8732', '32'], ['AB92', '2'], ['H853', '35'], ['B742', '24'], ['A965', '5'], ['H9642', '24'], ['V763', '3'], ['B9854', '45']],
+    seq: [['HV9', 'H'], ['HV87', 'H'], ['VB32', 'V'], ['VB10', 'V'], ['B1084', 'B'], ['HVB4', 'H'], ['AH74', 'A'], ['AHV3', 'A'], ['B1072', 'B']],
+    low: [['V8732', '32'], ['HB1064', '46'], ['AVB2', '2'], ['AB92', '2'], ['H853', '35'], ['B742', '24'], ['A965', '5'], ['H9642', '24'], ['V763', '3'], ['B9854', '45']],
     high: [['8732', '87'], ['9643', '96'], ['7542', '75'], ['964', '96'], ['87532', '87'], ['9852', '98']],
   }
   const [txt, lead] = pick(pools[kind])
@@ -314,7 +314,7 @@ export const genLead: Generator = () => {
   const good = answer.map(cardLabel).join(' of ')
   const explain = {
     seq: `Je hebt een serie: start met de hoogste kaart daarvan, ${good}. Die belooft de kaart er direct onder.`,
-    low: `Geen serie, wel een honneur: kom uit met een lage kaart (${good}). Zo weet partner dat je iets in de kleur hebt.`,
+    low: `Geen serie vanaf je hoogste kaart, wel een honneur: kom uit met een lage kaart (${good}). Zo weet partner dat je iets in de kleur hebt.`,
     high: `Geen honneur in de kleur: kom uit met een hoge kaart (${good}). Zo weet partner dat je hier niets hebt.`,
   }[kind]
   return {

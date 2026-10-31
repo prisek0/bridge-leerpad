@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { chapters } from '../content/chapters'
 import type { Chapter, Generator, Lesson } from '../content/types'
 import * as G from '../content/generators'
@@ -38,10 +38,18 @@ export function frontier(p: Progress): number {
 const PATH_SUITS = ['♠', '♥', '♦', '♣']
 const PATH_RANKS = ['A', 'H', 'V', 'B', '10', '9', '8', '7']
 
+// Waar je op het leerpad was: de laatst gekozen les of uitleg.
+let lastFocus: string | null = null
+
 export function PathScreen({ p, onStart, onTheory }: {
   p: Progress; onStart: (c: Chapter, l: Lesson) => void; onTheory: (c: Chapter) => void
 }) {
   const front = frontier(p)
+  // Terug op het leerpad: scroll naar waar je was, anders naar de les die aan de beurt is.
+  useLayoutEffect(() => {
+    const id = lastFocus ?? chapters.flatMap((c) => c.lessons)[front]?.id
+    if (id) document.getElementById(`focus-${id}`)?.scrollIntoView({ block: 'center' })
+  }, [])
   let idx = 0
   return (
     <div className="path">
@@ -53,14 +61,14 @@ export function PathScreen({ p, onStart, onTheory }: {
         const red = suit === '♥' || suit === '♦'
         return (
           <section key={ch.id} className={`unit ${unitDone ? 'unit-done' : ''}`}>
-            <div className="unit-head">
+            <div className="unit-head" id={`focus-${ch.id}`}>
               <div className="unit-nr" aria-hidden="true">{ch.nr}</div>
               <div className="unit-text">
                 <div className="unit-kicker">Hoofdstuk {ch.nr} · {unitDone ? 'klaar ✓' : `${doneCount}/${ch.lessons.length}`}</div>
                 <div className="unit-title">{ch.title}</div>
                 <div className="unit-sub">{ch.subtitle}</div>
               </div>
-              <button type="button" className="unit-book" onClick={() => onTheory(ch)} aria-label={`Uitleg bij hoofdstuk ${ch.nr}`}>Uitleg</button>
+              <button type="button" className="unit-book" onClick={() => { lastFocus = ch.id; onTheory(ch) }} aria-label={`Uitleg bij hoofdstuk ${ch.nr}`}>Uitleg</button>
             </div>
             <div className="deal">
               {ch.lessons.map((l, i) => {
@@ -72,8 +80,8 @@ export function PathScreen({ p, onStart, onTheory }: {
                 const times = p.completed[l.id] ?? 0
                 const cls = ['lesson-row', isDone && 'played', isCurrent && 'current', locked && 'locked'].filter(Boolean).join(' ')
                 return (
-                  <button key={l.id} type="button" className={cls} disabled={locked}
-                    onClick={() => onStart(ch, l)} aria-label={`${l.title}${isDone ? ' (voltooid)' : locked ? ' (op slot)' : ''}`}>
+                  <button key={l.id} id={`focus-${l.id}`} type="button" className={cls} disabled={locked}
+                    onClick={() => { lastFocus = l.id; onStart(ch, l) }} aria-label={`${l.title}${isDone ? ' (voltooid)' : locked ? ' (op slot)' : ''}`}>
                     <span className={`mini-card ${red ? 'red' : 'black'}`} aria-hidden="true">
                       {!locked && <><span className="mc-rank">{PATH_RANKS[i % PATH_RANKS.length]}</span><span className="mc-suit">{suit}</span></>}
                     </span>

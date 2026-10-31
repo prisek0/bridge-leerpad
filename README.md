@@ -29,4 +29,4 @@ Live at **https://bridge.priseko.de** (GitHub Pages). Every push to `main` runs 
 - Chapters, explanations and fixed exercises: `src/content/chapters.ts`.
 - Generated drills: `src/content/generators.ts`.
 
-Lead rules (`genLead`): the highest card of a sequence (down to the 10); with an honour but no sequence a low card; without an honour a high middle card. Lead exercises accept either of the two fitting cards.
+Lead rules (`genLead`): the highest card of a sequence that starts with your top card (down to the 10); otherwise, with an honour a low card (H B 10 6 4 → 4 or 6); without an honour a high middle card. Lead exercises accept either of the two fitting cards.
