@@ -87,7 +87,9 @@ function NumberQ({ ex, value, onChange, checked }: Sub<'number'> & { value: numb
   const press = (d: number | 'del') => {
     if (checked) return
     const cur = value === null ? '' : String(value)
-    const next = d === 'del' ? cur.slice(0, -1) : (cur + d).slice(-2)
+    // Hooguit 3 cijfers (antwoorden gaan tot 100); een extra cijfer wordt genegeerd in plaats van het getal te veranderen.
+    if (d !== 'del' && cur.length >= 3) return
+    const next = d === 'del' ? cur.slice(0, -1) : cur + d
     onChange(next === '' ? null : Number(next))
   }
   return (
