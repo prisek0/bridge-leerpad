@@ -94,12 +94,12 @@ function NumberQ({ ex, value, onChange, checked }: Sub<'number'> & { value: numb
     <>
       <Context ex={ex} />
       <div className={`numdisplay ${checked ? (value === ex.answer ? 'right' : 'wrong') : ''}`}>{value ?? <span className="muted">…</span>}</div>
-      <div className="numpad">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} type="button" onClick={() => press(d)} disabled={checked}>{d}</button>)}
-        <span />
-        <button type="button" onClick={() => press(0)} disabled={checked}>0</button>
-        <button type="button" onClick={() => press('del')} disabled={checked} aria-label="Wissen">⌫</button>
-      </div>
+      {!checked && (
+        <div className="numpad">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((d) => <button key={d} type="button" onClick={() => press(d)}>{d}</button>)}
+          <button type="button" onClick={() => press('del')} aria-label="Wissen">⌫</button>
+        </div>
+      )}
     </>
   )
 }

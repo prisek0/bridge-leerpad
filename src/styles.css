@@ -246,11 +246,11 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 .option:disabled { cursor: default; }
 
 /* getallen */
-.numdisplay { margin: 14px auto 12px; width: 120px; height: 64px; border: 1.5px solid var(--line); background: var(--surface); border-radius: 14px; display: grid; place-items: center; font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.numdisplay { margin: 10px auto 10px; width: 104px; height: 50px; border: 1.5px solid var(--line); background: var(--surface); border-radius: 14px; display: grid; place-items: center; font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .numdisplay.right { border-color: var(--ok); color: var(--ok-t); background: var(--ok-bg); }
 .numdisplay.wrong { border-color: var(--bad); color: var(--bad-t); background: var(--bad-bg); }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 300px; margin: 0 auto; }
-.numpad button { padding: 12px 0; font-size: 22px; font-weight: 800; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; }
+.numpad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; max-width: 360px; margin: 0 auto; }
+.numpad button { padding: 9px 0; font-size: 20px; font-weight: 800; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); box-shadow: var(--shadow); cursor: pointer; }
 .numpad button:active:not(:disabled) { transform: scale(.96); }
 .hint { color: var(--muted); font-size: 13px; text-align: center; }
 
@@ -284,7 +284,8 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; font-size: 18px; font-weight: 750; margin: 8px auto 0; max-width: 340px; }
 .rows-title { grid-column: 1 / -1; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
 .row { white-space: nowrap; letter-spacing: .5px; }
-.twohands { display: grid; gap: 10px; }
+.twohands { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.twohands .rows { grid-template-columns: 1fr; margin: 0; padding: 8px 12px; font-size: 17px; width: 100%; }
 
 /* diagram van één kleur / een slag: het groene laken */
 .diagram {
@@ -295,6 +296,8 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 .dseat, .tseat { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 54px; text-align: center; }
 .dN { grid-area: n; } .dS { grid-area: s; } .dE { grid-area: e; } .dW { grid-area: w; }
 .dtable { grid-area: t; }
+.diagram.ns { grid-template-columns: 1fr; grid-template-areas: "n" "s"; gap: 4px; padding: 8px 12px; }
+.diagram.ns .dseat { min-height: 0; }
 .dname { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--on-felt-muted); }
 .dhold { font-size: 19px; font-weight: 800; background: var(--card); color: #1a1a1a; border-radius: 8px; padding: 2px 10px; margin-top: 3px; letter-spacing: 1px; box-shadow: 0 2px 6px -2px rgba(0, 0, 0, .4); }
 .dhold .muted { color: #888; }

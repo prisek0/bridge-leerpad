@@ -80,7 +80,7 @@ export const chapters: Chapter[] = [
       { title: 'Vaste slagen', body: `Een **vaste slag** is een slag die je kunt maken zonder de slag eerst af te geven.\n\nMet A H V tegenover kleine kaarten heb je drie vaste slagen: je speelt ze gewoon na elkaar (**incasseren**).\n\nJe kunt nooit meer vaste slagen maken dan er kaarten in de langste hand zitten. Met A H tegenover V heb je maar twee vaste slagen.` },
       { title: 'Slagen ontwikkelen', body: `Met H V B tegenover kleine kaarten heb je nog geen vaste slag: de aas zit bij de tegenpartij. Speel de kleur toch! Na het afgeven van de aas zijn de andere honneurs vrij: twee slagen.\n\nDit heet **ontwikkelen** of **vrijspelen**.` },
       { title: 'Lengteslagen', body: `Ook kleine kaarten kunnen slagen maken. Met A H 7 5 3 tegenover 6 4 2 hebben de tegenstanders vijf kaarten. Zitten die 3-2 verdeeld, dan hebben ze na drie keer de kleur niets meer. Jouw 7 en 5 zijn dan ook slagen: **lengteslagen**.` },
-      { title: 'De korte kant eerst', body: `Speel eerst de honneurs van de **korte kant**. Met H 6 tegenover A V 4 2 speel je eerst de heer, daarna de 6 naar de A V. Zo blokkeer je de kleur niet.` },
+      { title: 'De korte hand eerst', body: `Speel eerst de honneurs van de **korte hand**. Met H 6 tegenover A V 4 2 speel je eerst de heer, daarna de 6 naar de A V. Zo blokkeer je de kleur niet.` },
       { title: 'Snijden', body: `Met A V tegenover kleine kaarten speel je **naar** de A V toe. Speelt West klein, dan leg je de vrouw. Zit de heer bij West, dan wint je vrouw de slag. Dat heet **snijden**.\n\nDe snit lukt als de ontbrekende honneur **vóór** je honneurs zit.` },
     ],
     lessons: [
@@ -95,9 +95,9 @@ export const chapters: Chapter[] = [
         num('De kaarten van de tegenpartij zitten 3-2. Hoeveel slagen maak je in deze kleur?', 5, 'Na A, H en nog een ronde heeft de tegenpartij niets meer. Je 7 en 5 worden lengteslagen: samen vijf.', { layout: { suit: 'C', N: 'AH753', S: '642' } }),
         mc('Waarom speel je eerst een kleur waarin je de aas mist?', ['Om slagen te ontwikkelen zolang je nog controle hebt in de andere kleuren', 'Omdat dat verplicht is', 'Om de tegenpartij te laten troeven'], 0, 'Je geeft de aas het liefst vroeg af, terwijl je in de andere kleuren nog de hoge kaarten hebt.'),
       ], gen: [[genSureTricks, 3]] },
-      { id: 'h2l3', title: 'De korte kant en snijden', items: [
-        pickQ('Je bent zuid en aan slag. Met welke kaart begin je in deze kleur?', 'S', 'H6', 'H', 'Speel eerst de honneur van de korte kant (zuid heeft maar twee kaarten). Daarna de 6 naar noords A V.', { N: 'AV42', S: 'H6' }),
-        pickQ('Je bent zuid en aan slag. Met welke kaart begin je?', 'H', 'V2', 'V', 'Zuid is de korte kant. Eerst de vrouw, daarna de 2 naar A H. Zo maak je drie slagen zonder blokkade.', { N: 'AH3', S: 'V2' }),
+      { id: 'h2l3', title: 'De korte hand en snijden', items: [
+        pickQ('Je bent zuid en aan slag. Met welke kaart begin je in deze kleur?', 'S', 'H6', 'H', 'Speel eerst de honneur van de korte hand (zuid heeft maar twee kaarten). Daarna de 6 naar noords A V.', { N: 'AV42', S: 'H6' }),
+        pickQ('Je bent zuid en aan slag. Met welke kaart begin je?', 'H', 'V2', 'V', 'Zuid is de korte hand. Eerst de vrouw, daarna de 2 naar A H. Zo maak je drie slagen zonder blokkade.', { N: 'AH3', S: 'V2' }),
         pickQ('Je speelt ♦2 vanuit zuid en west legt ♦5. Welke kaart leg je in de blinde (noord)?', 'D', 'AV', 'V', 'Snijden: leg de vrouw. Zit de heer bij west, dan wint je vrouw de slag.', { N: 'AV', S: '32', W: '?' }, [['S', '2'], ['W', '5']]),
         mc('Je snijdt met A V in noord, gespeeld vanuit zuid. Waar moet de heer zitten om de snit te laten lukken?', ['Bij West', 'Bij Oost'], 0, 'West speelt vóór noord. Zit de heer bij west, dan wint je vrouw.'),
       ], gen: [[genSureTricks, 3]] },
@@ -267,7 +267,7 @@ Ziet partner een lage kaart, dan weet hij dat je iets moois in de kleur hebt. Ee
   {
     id: 'h8', nr: '8', title: 'Het speelplan', subtitle: 'Eerst denken, dan spelen', color: '#ce82ff',
     theory: [
-      { title: 'Vier stappen', body: `Voordat je als leider de eerste kaart uit de blinde speelt, maak je een plan:\n\n- **1.** Tel je **vaste slagen**.\n- **2.** Reken uit hoeveel slagen je **tekortkomt**.\n- **3.** Bedenk **hoe** je die extra slagen ontwikkelt (vrijspelen, lengteslagen, snijden).\n- **4.** **Voer** het plan uit (denk aan: de korte kant eerst).` },
+      { title: 'Vier stappen', body: `Voordat je als leider de eerste kaart uit de blinde speelt, maak je een plan:\n\n- **1.** Tel je **vaste slagen**.\n- **2.** Reken uit hoeveel slagen je **tekortkomt**.\n- **3.** Bedenk **hoe** je die extra slagen ontwikkelt (vrijspelen, lengteslagen, snijden).\n- **4.** **Voer** het plan uit (denk aan: de korte hand eerst).` },
       { title: 'Een kleur kiezen', body: `Ontwikkel de kleur die de meeste extra slagen oplevert. Een kleur als H V B 10 levert na het afgeven van de aas drie slagen op. Speel die kleur vroeg, zolang je in de andere kleuren nog controle hebt.` },
     ],
     lessons: [

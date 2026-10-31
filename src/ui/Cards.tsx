@@ -92,6 +92,8 @@ export function SuitDiagram({ layout, played = [] }: { layout?: SuitLayout; play
       </div>
     )
   }
+  const used = (s: Seat) => layout?.[s] !== undefined || played.some((p) => p.seat === s)
+  if (!used('E') && !used('W')) return <div className="diagram ns">{cell('N')}{cell('S')}</div>
   return (
     <div className="diagram">
       {cell('N')}{cell('W')}<div className="dtable" />{cell('E')}{cell('S')}
