@@ -1,0 +1,191 @@
+import { useState } from 'react'
+import { type Card, type Seat, SEAT_NAME, STRAINS, cardLabel, leftOf, sameCard } from '../bridge/cards'
+import { type Bid, bidLabel, bidRank, call, parseBid } from '../bridge/bidding'
+import type { Exercise } from '../content/types'
+import { Auction, HandFan, HandRows, PlayingCard, Rich, SuitDiagram, TrickView, TwoHands } from './Cards'
+
+export type Answer = number | Bid | Seat | Card | Card[] | null
+
+export function isCorrect(ex: Exercise, a: Answer): boolean {
+  switch (ex.kind) {
+    case 'mc': case 'number': case 'bid': case 'trick': return a === ex.answer
+    case 'pick': return !!a && ex.answer.some((c) => sameCard(c, a as Card))
+    case 'tap': {
+      const sel = (a as Card[]) ?? []
+      return sel.length === ex.correct.length && sel.every((c) => ex.correct.some((d) => sameCard(c, d)))
+    }
+  }
+}
+
+export function correctText(ex: Exercise): string {
+  switch (ex.kind) {
+    case 'mc': return ex.options[ex.answer]
+    case 'number': return String(ex.answer)
+    case 'bid': return bidLabel(ex.answer)
+    case 'trick': return SEAT_NAME[ex.answer]
+    case 'pick': return ex.answer.map(cardLabel).join(' of ')
+    case 'tap': return ex.correct.map(cardLabel).join(' ')
+  }
+}
+
+/** Is er genoeg ingevuld om te controleren? */
+export function isAnswered(ex: Exercise, a: Answer): boolean {
+  if (ex.kind === 'tap') return Array.isArray(a) && a.length > 0
+  return a !== null && a !== undefined && a !== ''
+}
+
+interface Props {
+  ex: Exercise
+  value: Answer
+  onChange: (a: Answer) => void
+  checked: boolean
+}
+
+export function ExerciseView({ ex, value, onChange, checked }: Props) {
+  return (
+    <div className="exercise">
+      <h2 className="prompt"><Rich text={ex.prompt} /></h2>
+      {ex.kind === 'mc' && <MC ex={ex} value={value as number | null} onChange={onChange} checked={checked} />}
+      {ex.kind === 'number' && <NumberQ ex={ex} value={value as number | null} onChange={onChange} checked={checked} />}
+      {ex.kind === 'bid' && <BidQ ex={ex} value={value as Bid | null} onChange={onChange} checked={checked} />}
+      {ex.kind === 'trick' && <TrickView trick={ex.trick} picked={value as Seat | null} answer={checked ? ex.answer : null} onPick={checked ? undefined : (s) => onChange(s)} />}
+      {ex.kind === 'tap' && <TapQ ex={ex} value={(value as Card[]) ?? []} onChange={onChange} checked={checked} />}
+      {ex.kind === 'pick' && <PickQ ex={ex} value={value as Card | null} onChange={onChange} checked={checked} />}
+    </div>
+  )
+}
+
+function Context({ ex }: { ex: Exercise }) {
+  if ('hands' in ex && ex.hands) return <TwoHands N={ex.hands.N} S={ex.hands.S} />
+  const layout = 'layout' in ex ? ex.layout : undefined
+  const hand = 'hand' in ex ? ex.hand : undefined
+  return (
+    <>
+      {(layout || ex.played) && <SuitDiagram layout={layout} played={ex.played} />}
+      {hand && <><HandFan hand={hand} />{!ex.played && <HandRows hand={hand} />}</>}
+    </>
+  )
+}
+
+type Sub<K extends Exercise['kind']> = { ex: Extract<Exercise, { kind: K }>; checked: boolean; onChange: (a: Answer) => void }
+
+function MC({ ex, value, onChange, checked }: Sub<'mc'> & { value: number | null }) {
+  return (
+    <>
+      <Context ex={ex} />
+      <div className={`options ${ex.options.length === 2 ? 'two' : ''}`}>
+        {ex.options.map((o, i) => {
+          const cls = ['option', value === i && 'sel', checked && i === ex.answer && 'right', checked && value === i && i !== ex.answer && 'wrong'].filter(Boolean).join(' ')
+          return <button key={i} type="button" className={cls} disabled={checked} onClick={() => onChange(i)}><Rich text={o} /></button>
+        })}
+      </div>
+    </>
+  )
+}
+
+function NumberQ({ ex, value, onChange, checked }: Sub<'number'> & { value: number | null }) {
+  const press = (d: number | 'del') => {
+    if (checked) return
+    const cur = value === null ? '' : String(value)
+    const next = d === 'del' ? cur.slice(0, -1) : (cur + d).slice(-2)
+    onChange(next === '' ? null : Number(next))
+  }
+  return (
+    <>
+      <Context ex={ex} />
+      <div className={`numdisplay ${checked ? (value === ex.answer ? 'right' : 'wrong') : ''}`}>{value ?? <span className="muted">…</span>}</div>
+      <div className="numpad">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => <button key={d} type="button" onClick={() => press(d)} disabled={checked}>{d}</button>)}
+        <span />
+        <button type="button" onClick={() => press(0)} disabled={checked}>0</button>
+        <button type="button" onClick={() => press('del')} disabled={checked} aria-label="Wissen">⌫</button>
+      </div>
+    </>
+  )
+}
+
+function BidQ({ ex, value, onChange, checked }: Sub<'bid'> & { value: Bid | null }) {
+  const [level, setLevel] = useState<number | null>(null)
+  // Wie deed welk bod?
+  let seat: Seat = ex.dealer
+  let lastBid: Bid | null = null
+  let lastBidder: Seat | null = null
+  let doubled = false
+  for (const c of ex.calls) {
+    if (parseBid(c)) { lastBid = c; lastBidder = seat; doubled = false }
+    if (c === 'X') doubled = true
+    seat = leftOf(seat)
+  }
+  const minRank = lastBid ? bidRank(lastBid) : -1
+  const canDouble = !!lastBidder && (lastBidder === 'E' || lastBidder === 'W') && !doubled
+  const choose = (b: Bid) => { if (!checked) onChange(b) }
+
+  return (
+    <>
+      <Auction dealer={ex.dealer} calls={ex.calls} last={value ? <Rich text={bidLabel(value)} /> : '?'} />
+      <HandFan hand={ex.hand} />
+      <HandRows hand={ex.hand} />
+      <div className="bidbox" aria-disabled={checked}>
+        <div className="levels">
+          {[1, 2, 3, 4, 5, 6, 7].map((l) => {
+            const any = STRAINS.some((s) => bidRank(call(l, s)) > minRank)
+            return <button key={l} type="button" disabled={!any || checked} className={level === l ? 'sel' : ''} onClick={() => setLevel(l)}>{l}</button>
+          })}
+        </div>
+        <div className="strains">
+          {STRAINS.map((s) => {
+            const b = level ? call(level, s) : null
+            const ok = !!b && bidRank(b) > minRank
+            return (
+              <button key={s} type="button" disabled={!ok || checked} className={value === b ? 'sel' : ''} onClick={() => b && choose(b)}>
+                <Rich text={s === 'NT' ? 'SA' : bidLabel(call(1, s)).slice(1)} />
+              </button>
+            )
+          })}
+        </div>
+        <div className="calls">
+          <button type="button" className={`pass ${value === 'P' ? 'sel' : ''}`} disabled={checked} onClick={() => choose('P')}>Pas</button>
+          <button type="button" className={`dbl ${value === 'X' ? 'sel' : ''}`} disabled={!canDouble || checked} onClick={() => choose('X')}>Doublet</button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function TapQ({ ex, value, onChange, checked }: Sub<'tap'> & { value: Card[] }) {
+  const toggle = (c: Card) => {
+    if (checked) return
+    onChange(value.some((v) => sameCard(v, c)) ? value.filter((v) => !sameCard(v, c)) : [...value, c])
+  }
+  const marks = checked ? (c: Card) => {
+    const should = ex.correct.some((d) => sameCard(d, c))
+    const did = value.some((v) => sameCard(v, c))
+    if (should && did) return 'right' as const
+    if (did) return 'wrong' as const
+    if (should) return 'missed' as const
+    return undefined
+  } : undefined
+  return (
+    <>
+      {ex.played && <SuitDiagram played={ex.played} />}
+      <HandFan hand={ex.hand} selected={value} onTap={toggle} marks={marks} />
+      <p className="hint">Tik op een kaart om hem te kiezen, nog een keer om hem weer los te laten.</p>
+    </>
+  )
+}
+
+function PickQ({ ex, value, onChange, checked }: Sub<'pick'> & { value: Card | null }) {
+  return (
+    <>
+      {ex.layout && <SuitDiagram layout={ex.layout} played={ex.played} />}
+      <div className="pickrow">
+        {ex.cards.map((c) => {
+          const isAns = ex.answer.some((a) => sameCard(a, c))
+          const sel = !!value && sameCard(value, c)
+          const state = checked ? (isAns ? 'right' : sel ? 'wrong' : undefined) : undefined
+          return <PlayingCard key={c.rank} card={c} selected={sel} state={state} onClick={checked ? undefined : () => onChange(c)} />
+        })}
+      </div>
+    </>
+  )
+}

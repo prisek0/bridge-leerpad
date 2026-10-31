@@ -1,0 +1,62 @@
+import { useState } from 'react'
+import type { Chapter, Exercise, Lesson } from '../content/types'
+import { buildSession } from '../content/session'
+import { shuffle } from '../bridge/cards'
+import { useProgress } from '../state/progress'
+import { type LessonResult, LessonDone, LessonRunner } from './LessonRunner'
+import { type Drill, PathScreen, PracticeScreen, ProfileScreen, TheoryScreen, TopBar } from './Screens'
+
+type Tab = 'pad' | 'oefenen' | 'profiel'
+type Screen =
+  | { kind: 'home' }
+  | { kind: 'theory'; chapter: Chapter; then?: Lesson }
+  | { kind: 'lesson'; title: string; exercises: Exercise[]; lessonId: string | null; review?: boolean }
+  | { kind: 'done'; result: LessonResult }
+
+const seenTheory = () => { try { return new Set<string>(JSON.parse(localStorage.getItem('bridge-theory') ?? '[]')) } catch { return new Set<string>() } }
+const markTheory = (id: string) => { try { const s = seenTheory(); s.add(id); localStorage.setItem('bridge-theory', JSON.stringify([...s])) } catch { /* negeren */ } }
+
+export default function App() {
+  const p = useProgress()
+  const [tab, setTab] = useState<Tab>('pad')
+  const [screen, setScreen] = useState<Screen>({ kind: 'home' })
+
+  const startLesson = (ch: Chapter, l: Lesson) => {
+    // Eerste les van een hoofdstuk: eerst de uitleg.
+    if (ch.lessons[0].id === l.id && !seenTheory().has(ch.id)) return setScreen({ kind: 'theory', chapter: ch, then: l })
+    setScreen({ kind: 'lesson', title: `${ch.nr}. ${l.title}`, exercises: buildSession(l), lessonId: l.id })
+  }
+  const startDrill = (d: Drill) => {
+    const exercises = Array.from({ length: 10 }, (_, i) => d.gens[i % d.gens.length]())
+    setScreen({ kind: 'lesson', title: d.title, exercises: shuffle(exercises), lessonId: null })
+  }
+  const startMistakes = () => setScreen({ kind: 'lesson', title: 'Fouten herhalen', exercises: p.mistakes.slice(0, 10), lessonId: null, review: true })
+  const home = () => setScreen({ kind: 'home' })
+
+  if (screen.kind === 'theory') {
+    const { chapter, then } = screen
+    return <TheoryScreen chapter={chapter} onClose={() => { markTheory(chapter.id); home() }}
+      onStart={then ? () => { markTheory(chapter.id); startLesson(chapter, then) } : undefined} />
+  }
+  if (screen.kind === 'lesson') {
+    return <LessonRunner title={screen.title} exercises={screen.exercises} lessonId={screen.lessonId} reviewMode={screen.review}
+      onClose={home} onDone={(result) => setScreen({ kind: 'done', result })} />
+  }
+  if (screen.kind === 'done') return <LessonDone result={screen.result} onContinue={home} />
+
+  return (
+    <div className="app">
+      <TopBar p={p} />
+      <main className="content">
+        {tab === 'pad' && <PathScreen p={p} onStart={startLesson} onTheory={(c) => setScreen({ kind: 'theory', chapter: c })} />}
+        {tab === 'oefenen' && <PracticeScreen p={p} onDrill={startDrill} onMistakes={startMistakes} />}
+        {tab === 'profiel' && <ProfileScreen p={p} />}
+      </main>
+      <nav className="tabs">
+        <button type="button" className={tab === 'pad' ? 'on' : ''} onClick={() => setTab('pad')}><span aria-hidden="true">♠</span>Leerpad</button>
+        <button type="button" className={tab === 'oefenen' ? 'on' : ''} onClick={() => setTab('oefenen')}><span aria-hidden="true">♦</span>Oefenen</button>
+        <button type="button" className={tab === 'profiel' ? 'on' : ''} onClick={() => setTab('profiel')}><span aria-hidden="true">♣</span>Profiel</button>
+      </nav>
+    </div>
+  )
+}
