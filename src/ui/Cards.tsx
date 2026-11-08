@@ -1,9 +1,9 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type ReactNode, useState } from 'react'
 import {
-  type Card, type Hand, type Seat, type Suit, SEAT_NAME, SEAT_SHORT, SUITS, SUIT_SYMBOL,
+  type Card, type Hand, type Seat, type Suit, SEAT_NAME, SEAT_SHORT, STRAINS, SUITS, SUIT_SYMBOL,
   cardsIn, fanSort, holdingLabel, isRed, rankLabel, sameCard,
 } from '../bridge/cards'
-import { type Bid, bidLabel } from '../bridge/bidding'
+import { type Bid, bidLabel, call } from '../bridge/bidding'
 import type { PlayedCard } from '../bridge/play'
 import type { SuitLayout } from '../content/types'
 
@@ -101,13 +101,17 @@ export function SuitDiagram({ layout, played = [] }: { layout?: SuitLayout; play
   )
 }
 
-/** Biedverloop in de kolommen W N O Z. */
-export function Auction({ dealer, calls, last }: { dealer: Seat; calls: Bid[]; last?: ReactNode }) {
+/** Biedverloop in de kolommen W N O Z. Met `onTap` kun je op een bod tikken. */
+export function Auction({ dealer, calls, last, onTap, active }: {
+  dealer: Seat; calls: Bid[]; last?: ReactNode | null; onTap?: (i: number) => void; active?: number | null
+}) {
   const order: Seat[] = ['W', 'N', 'E', 'S']
   const start = order.indexOf(dealer)
   const cells: ReactNode[] = Array.from({ length: start }, (_, i) => <div key={`e${i}`} className="acell" />)
-  calls.forEach((c, i) => cells.push(<div key={i} className="acell"><Rich text={bidLabel(c)} /></div>))
-  cells.push(<div key="q" className="acell ask">{last ?? '?'}</div>)
+  calls.forEach((c, i) => cells.push(onTap
+    ? <button key={i} type="button" className={`acell tap ${active === i ? 'on' : ''}`} onClick={() => onTap(i)}><Rich text={bidLabel(c)} /></button>
+    : <div key={i} className="acell"><Rich text={bidLabel(c)} /></div>))
+  if (last !== null) cells.push(<div key="q" className="acell ask">{last ?? '?'}</div>)
   return (
     <div className="auction">
       {order.map((s) => <div key={s} className={`ahead ${s === 'S' ? 'you' : ''}`}>{SEAT_SHORT[s]}</div>)}
@@ -133,4 +137,35 @@ export function TrickView({ trick, onPick, picked, answer }: {
     )
   }
   return <div className="diagram trick">{cell('N')}{cell('W')}<div className="dtable" />{cell('E')}{cell('S')}</div>
+}
+
+/** Het biedkastje: eerst een niveau, dan een speelsoort; of pas / doublet. */
+export function BidBox({ legal, value, onPick, disabled }: { legal: Bid[]; value?: Bid | null; onPick: (b: Bid) => void; disabled?: boolean }) {
+  const [level, setLevel] = useState<number | null>(null)
+  const dbl = legal.includes('XX') ? 'XX' : 'X'
+  return (
+    <div className="bidbox" aria-disabled={disabled}>
+      <div className="levels">
+        {[1, 2, 3, 4, 5, 6, 7].map((l) => {
+          const any = STRAINS.some((s) => legal.includes(call(l, s)))
+          return <button key={l} type="button" disabled={!any || disabled} className={level === l ? 'sel' : ''} onClick={() => setLevel(l)}>{l}</button>
+        })}
+      </div>
+      <div className="strains">
+        {STRAINS.map((s) => {
+          const b = level ? call(level, s) : null
+          const ok = !!b && legal.includes(b)
+          return (
+            <button key={s} type="button" disabled={!ok || disabled} className={value === b ? 'sel' : ''} onClick={() => b && onPick(b)}>
+              <Rich text={s === 'NT' ? 'SA' : bidLabel(call(1, s)).slice(1)} />
+            </button>
+          )
+        })}
+      </div>
+      <div className="calls">
+        <button type="button" className={`pass ${value === 'P' ? 'sel' : ''}`} disabled={disabled} onClick={() => onPick('P')}>Pas</button>
+        <button type="button" className={`dbl ${value === dbl ? 'sel' : ''}`} disabled={!legal.includes(dbl) || disabled} onClick={() => onPick(dbl)}>{dbl === 'XX' ? 'Redoublet' : 'Doublet'}</button>
+      </div>
+    </div>
+  )
 }

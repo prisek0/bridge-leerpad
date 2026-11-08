@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { type Card, type Seat, SEAT_NAME, STRAINS, cardLabel, leftOf, sameCard } from '../bridge/cards'
-import { type Bid, bidLabel, bidRank, call, parseBid } from '../bridge/bidding'
+import { type Card, type Seat, SEAT_NAME, cardLabel, sameCard } from '../bridge/cards'
+import { type Bid, bidLabel } from '../bridge/bidding'
+import { legalCalls } from '../bridge/auction'
 import type { Exercise } from '../content/types'
-import { Auction, HandFan, HandRows, PlayingCard, Rich, SuitDiagram, TrickView, TwoHands } from './Cards'
+import { Auction, BidBox, HandFan, HandRows, PlayingCard, Rich, SuitDiagram, TrickView, TwoHands } from './Cards'
 
 export type Answer = number | Bid | Seat | Card | Card[] | null
 
@@ -107,49 +107,13 @@ function NumberQ({ ex, value, onChange, checked }: Sub<'number'> & { value: numb
 }
 
 function BidQ({ ex, value, onChange, checked }: Sub<'bid'> & { value: Bid | null }) {
-  const [level, setLevel] = useState<number | null>(null)
-  // Wie deed welk bod?
-  let seat: Seat = ex.dealer
-  let lastBid: Bid | null = null
-  let lastBidder: Seat | null = null
-  let doubled = false
-  for (const c of ex.calls) {
-    if (parseBid(c)) { lastBid = c; lastBidder = seat; doubled = false }
-    if (c === 'X') doubled = true
-    seat = leftOf(seat)
-  }
-  const minRank = lastBid ? bidRank(lastBid) : -1
-  const canDouble = !!lastBidder && (lastBidder === 'E' || lastBidder === 'W') && !doubled
-  const choose = (b: Bid) => { if (!checked) onChange(b) }
-
+  const legal = legalCalls(ex.dealer, ex.calls).filter((b) => b !== 'XX')
   return (
     <>
       <Auction dealer={ex.dealer} calls={ex.calls} last={value ? <Rich text={bidLabel(value)} /> : '?'} />
       <HandFan hand={ex.hand} />
       <HandRows hand={ex.hand} />
-      <div className="bidbox" aria-disabled={checked}>
-        <div className="levels">
-          {[1, 2, 3, 4, 5, 6, 7].map((l) => {
-            const any = STRAINS.some((s) => bidRank(call(l, s)) > minRank)
-            return <button key={l} type="button" disabled={!any || checked} className={level === l ? 'sel' : ''} onClick={() => setLevel(l)}>{l}</button>
-          })}
-        </div>
-        <div className="strains">
-          {STRAINS.map((s) => {
-            const b = level ? call(level, s) : null
-            const ok = !!b && bidRank(b) > minRank
-            return (
-              <button key={s} type="button" disabled={!ok || checked} className={value === b ? 'sel' : ''} onClick={() => b && choose(b)}>
-                <Rich text={s === 'NT' ? 'SA' : bidLabel(call(1, s)).slice(1)} />
-              </button>
-            )
-          })}
-        </div>
-        <div className="calls">
-          <button type="button" className={`pass ${value === 'P' ? 'sel' : ''}`} disabled={checked} onClick={() => choose('P')}>Pas</button>
-          <button type="button" className={`dbl ${value === 'X' ? 'sel' : ''}`} disabled={!canDouble || checked} onClick={() => choose('X')}>Doublet</button>
-        </div>
-      </div>
+      <BidBox legal={legal} value={value} disabled={checked} onPick={(b) => { if (!checked) onChange(b) }} />
     </>
   )
 }

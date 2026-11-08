@@ -16,6 +16,10 @@ export interface Progress {
   /** Recente fouten om te herhalen. */
   mistakes: Exercise[]
   sound: boolean
+  /** Spelen: ook stof die je nog niet gehad hebt. */
+  playAll: boolean
+  /** De coach geeft tips tijdens het spelen. */
+  coach: boolean
 }
 
 const KEY = 'bridge-leerpad-v1'
@@ -25,7 +29,7 @@ const yesterdayKey = () => { const d = new Date(); d.setDate(d.getDate() - 1); r
 
 const initial = (): Progress => ({
   completed: {}, xp: 0, streak: 0, lastStreakDay: null, today: { day: dayKey(), xp: 0 },
-  dailyGoal: 30, stats: {}, mistakes: [], sound: true,
+  dailyGoal: 30, stats: {}, mistakes: [], sound: true, playAll: false, coach: true,
 })
 
 function load(): Progress {
@@ -66,6 +70,12 @@ export function recordAnswer(ex: Exercise, right: boolean) {
   save({ ...state, stats: { ...state.stats, [skill]: right ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 } }, mistakes })
 }
 
+/** Alleen de statistiek bijwerken (voor fouten tijdens het spelen die geen oefening zijn). */
+export function recordSkill(skill: string, right: boolean) {
+  const s = state.stats[skill] ?? { right: 0, wrong: 0 }
+  save({ ...state, stats: { ...state.stats, [skill]: right ? { ...s, right: s.right + 1 } : { ...s, wrong: s.wrong + 1 } } })
+}
+
 export function removeMistake(ex: Exercise) {
   save({ ...state, mistakes: state.mistakes.filter((m) => m !== ex && JSON.stringify(m) !== JSON.stringify(ex)) })
 }
@@ -86,7 +96,7 @@ export function finishLesson(lessonId: string | null, xp: number): { streakUp: b
   return { streakUp }
 }
 
-export function setSetting<K extends 'sound' | 'dailyGoal'>(key: K, value: Progress[K]) {
+export function setSetting<K extends 'sound' | 'dailyGoal' | 'playAll' | 'coach'>(key: K, value: Progress[K]) {
   save({ ...state, [key]: value })
 }
 

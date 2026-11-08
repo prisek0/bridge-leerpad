@@ -3,6 +3,7 @@ import { chapters } from '../content/chapters'
 import type { Chapter, Generator, Lesson } from '../content/types'
 import * as G from '../content/generators'
 import { type Progress, currentStreak, resetProgress, setSetting, todayXp } from '../state/progress'
+import { MODES, type Mode, chapterName, learnedChapters } from '../game/modes'
 import { Rich } from './Cards'
 
 // ------------------------------------------------------------ bovenbalk
@@ -199,6 +200,32 @@ function statFor(p: Progress, d: Drill): number | null {
   let r = 0, w = 0
   for (const k of DRILL_SKILLS[d.id] ?? []) { r += p.stats[k]?.right ?? 0; w += p.stats[k]?.wrong ?? 0 }
   return r + w ? Math.round((r / (r + w)) * 100) : null
+}
+
+// ---------------------------------------------------------------- spelen
+
+export function PlayScreen({ p, onPlay }: { p: Progress; onPlay: (m: Mode) => void }) {
+  const learned = learnedChapters(p)
+  return (
+    <div className="practice">
+      <h1>Spelen</h1>
+      <p className="muted">Echte spellen aan tafel met drie robots. De coach kijkt mee en helpt met de afspraken die je al gehad hebt.</p>
+      <div className="drills">
+        {MODES.map((m) => {
+          const open = learned.has(m.unlock)
+          return (
+            <button key={m.id} type="button" className="drill mode" disabled={!open} onClick={() => onPlay(m)}>
+              <span className="drill-icon">{m.icon}</span>
+              <span><strong>{m.title}</strong><br /><span className="muted">{open ? m.sub : `Open na de eerste les van ${chapterName(m.unlock)}`}</span></span>
+            </button>
+          )
+        })}
+      </div>
+      <label className="setting"><span>Coach geeft tips tijdens het spel</span><input type="checkbox" checked={p.coach} onChange={(e) => setSetting('coach', e.target.checked)} /></label>
+      <label className="setting"><span>Ook stof die ik nog niet gehad heb</span><input type="checkbox" checked={p.playAll} onChange={(e) => setSetting('playAll', e.target.checked)} /></label>
+      <p className="muted small">Staat dit uit, dan biedt de coach voor je als een bod uit een hoofdstuk komt dat je nog niet gehad hebt, en geeft hij alleen tips over stof die je kent. Alle spellen zijn niet kwetsbaar.</p>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------- profiel

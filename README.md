@@ -8,6 +8,7 @@ A Duolingo-style practice app for the Dutch beginner course *Leer bridge met Ber
 - **Exercises**: multiple choice, counting points and tricks, a bidding box with the auction, tapping cards, choosing the card to play on a table diagram, and "who wins the trick".
 - **New hands every time**: generated exercises are dealt fresh and checked against a rules engine for the deel 1 agreements (`src/bridge/bidding.ts`). Hands without a clear answer under those agreements are skipped.
 - **Duolingo mechanics**: XP, a daily goal, a streak, wrong answers repeated at the end of the lesson, a practice tab with endless drills, and a "Fouten herhalen" round that replays your mistakes.
+- **Spelen**: real deals at a table with three robots, in four modes: *Afspelen* (you declare), *Tegenspelen* (you defend with partner), *Bieden met partner* (six auctions, then all four hands and the right contract) and *Clubavond* (four deals bid and played, compared with robots playing the same cards at the other table). A coach checks your bids against the deel 1 agreements, warns before a card that breaks a rule from the book (lead, second hand low, third hand high, cover an honour, draw trumps, finesse, short hand first), asks for your speelplan when the dummy goes down, and comments on finesses and ruffs. Wrong bids and leads go to "Fouten herhalen". Modes and coaching follow your progress: a bid from a chapter you haven't reached is made by the coach, with an explanation.
 - Works offline as a PWA. Progress is stored only in the browser on that device.
 
 ## Running it
@@ -28,5 +29,6 @@ Live at **https://bridge.priseko.de** (GitHub Pages). Every push to `main` runs 
 - Bidding rules: `src/bridge/bidding.ts`. The tests in `bidding.test.ts` use the example hands from the teacher's guide.
 - Chapters, explanations and fixed exercises: `src/content/chapters.ts`.
 - Generated drills: `src/content/generators.ts`.
+- Robot bidding outside the deel 1 agreements (rebids and later rounds): `freeAdvice` in `src/bridge/auction.ts`. Robot card play: `src/bridge/robot.ts`. Coach rules: `src/bridge/coach.ts`.
 
 Lead rules (`genLead`): the highest card of a sequence that starts with your top card (down to the 10); otherwise, with an honour a low card (H B 10 6 4 → 4 or 6); without an honour a high middle card. Lead exercises accept either of the two fitting cards.
