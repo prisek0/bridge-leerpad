@@ -4,10 +4,10 @@ import { buildSession } from '../content/session'
 import { shuffle } from '../bridge/cards'
 import { useProgress } from '../state/progress'
 import { type LessonResult, LessonDone, LessonRunner } from './LessonRunner'
-import { type Drill, PathScreen, PlayScreen, PracticeScreen, ProfileScreen, TheoryScreen, TopBar } from './Screens'
+import { type Drill, ImportCard, PathScreen, PlayScreen, PracticeScreen, ProfileScreen, TheoryScreen, TopBar } from './Screens'
 import { Game } from './Game'
 import type { Mode } from '../game/modes'
-import type { Replay } from '../state/progress'
+import { type Replay, type Transfer, readTransfer } from '../state/progress'
 
 type Tab = 'pad' | 'spelen' | 'oefenen' | 'profiel'
 type Screen =
@@ -16,6 +16,7 @@ type Screen =
   | { kind: 'lesson'; title: string; exercises: Exercise[]; lessonId: string | null; review?: boolean }
   | { kind: 'done'; result: LessonResult }
   | { kind: 'game'; mode: Mode; replays?: Replay[] }
+  | { kind: 'import'; data: Transfer }
 
 const seenTheory = () => { try { return new Set<string>(JSON.parse(localStorage.getItem('bridge-theory') ?? '[]')) } catch { return new Set<string>() } }
 const markTheory = (id: string) => { try { const s = seenTheory(); s.add(id); localStorage.setItem('bridge-theory', JSON.stringify([...s])) } catch { /* negeren */ } }
@@ -23,7 +24,11 @@ const markTheory = (id: string) => { try { const s = seenTheory(); s.add(id); lo
 export default function App() {
   const p = useProgress()
   const [tab, setTab] = useState<Tab>('pad')
-  const [screen, setScreen] = useState<Screen>({ kind: 'home' })
+  const [screen, setScreen] = useState<Screen>(() => {
+    // Geopend via een link met voortgang van een ander apparaat?
+    const data = location.hash ? readTransfer(location.hash) : null
+    return data ? { kind: 'import', data } : { kind: 'home' }
+  })
 
   const startLesson = (ch: Chapter, l: Lesson) => {
     // Eerste les van een hoofdstuk: eerst de uitleg.
@@ -45,6 +50,15 @@ export default function App() {
   if (screen.kind === 'lesson') {
     return <LessonRunner title={screen.title} exercises={screen.exercises} lessonId={screen.lessonId} reviewMode={screen.review}
       onClose={home} onDone={(result) => setScreen({ kind: 'done', result })} />
+  }
+  if (screen.kind === 'import') {
+    return (
+      <div className="app"><main className="content profile">
+        <h1>Voortgang overnemen</h1>
+        <ImportCard data={screen.data} onDone={(taken) => { history.replaceState(null, '', location.pathname); if (taken) setTab('pad'); home() }} />
+        <p className="muted small">Gebruik je Bridge als app op je beginscherm? Die heeft op de iPhone een eigen geheugen. Kopieer dan deze link en plak hem in de app bij Profiel → Voortgang overnemen.</p>
+      </main></div>
+    )
   }
   if (screen.kind === 'done') return <LessonDone result={screen.result} onContinue={home} />
   if (screen.kind === 'game') return <Game key={screen.mode.id + (screen.replays ? '-r' : '')} mode={screen.mode} replays={screen.replays} p={p} onExit={home} />

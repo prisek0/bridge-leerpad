@@ -2,7 +2,10 @@ import { useLayoutEffect, useState } from 'react'
 import { chapters } from '../content/chapters'
 import type { Chapter, Generator, Lesson } from '../content/types'
 import * as G from '../content/generators'
-import { type Progress, type Replay, currentStreak, readyReplays, resetProgress, setSetting, todayXp } from '../state/progress'
+import {
+  type Progress, type Replay, type Transfer, currentStreak, importTransfer, readTransfer, readyReplays, resetProgress, setSetting, skipLessons, todayXp,
+  transferLink,
+} from '../state/progress'
 import { MODES, type Mode, chapterName, learnedChapters } from '../game/modes'
 import { Rich } from './Cards'
 
@@ -81,8 +84,14 @@ export function PathScreen({ p, onStart, onTheory }: {
                 const times = p.completed[l.id] ?? 0
                 const cls = ['lesson-row', isDone && 'played', isCurrent && 'current', locked && 'locked'].filter(Boolean).join(' ')
                 return (
-                  <button key={l.id} id={`focus-${l.id}`} type="button" className={cls} disabled={locked}
-                    onClick={() => { lastFocus = l.id; onStart(ch, l) }} aria-label={`${l.title}${isDone ? ' (voltooid)' : locked ? ' (op slot)' : ''}`}>
+                  <button key={l.id} id={`focus-${l.id}`} type="button" className={cls}
+                    onClick={() => {
+                      lastFocus = l.id
+                      if (!locked) return onStart(ch, l)
+                      // Doorspringen, bijvoorbeeld op een nieuw apparaat of als je de stof al kent.
+                      if (confirm(`Doorspringen naar "${l.title}"? De lessen ervoor tellen dan als gedaan.`)) skipLessons(allLessons.slice(0, n).map((x) => x.lesson.id))
+                    }}
+                    aria-label={`${l.title}${isDone ? ' (voltooid)' : locked ? ' (op slot, tik om door te springen)' : ''}`}>
                     <span className={`mini-card ${red ? 'red' : 'black'}`} aria-hidden="true">
                       {!locked && <><span className="mc-rank">{PATH_RANKS[i % PATH_RANKS.length]}</span><span className="mc-suit">{suit}</span></>}
                     </span>
@@ -90,8 +99,9 @@ export function PathScreen({ p, onStart, onTheory }: {
                       <span className="lr-title">{l.title}</span>
                       <span className="lr-meta">
                         {isCurrent ? (n === 0 && !p.xp ? 'Begin hier' : 'Speel nu')
+                          : p.skipped.includes(l.id) ? 'Overgeslagen'
                           : isDone ? `Gespeeld${times > 1 ? ` ×${times}` : ''}`
-                          : 'Nog dicht'}
+                          : 'Nog dicht · tik om door te springen'}
                       </span>
                     </span>
                     {isCurrent && <span className="lr-go" aria-hidden="true" />}
@@ -281,8 +291,76 @@ export function ProfileScreen({ p }: { p: Progress }) {
           <option value={80}>Fanatiek (80 XP)</option>
         </select>
       </label>
+      <h2>Ander apparaat</h2>
+      <Transfer />
       <button type="button" className="btn ghost danger" onClick={() => { if (confirm('Alle voortgang wissen? Dit kan niet ongedaan worden.')) resetProgress() }}>Voortgang wissen</button>
-      <p className="muted small">De oefenstof volgt de hoofdstukken en afspraken van <em>Leer bridge met Berry Westra</em>, deel 1. Uitleg en oefeningen zijn eigen tekst. Je voortgang wordt alleen op dit apparaat bewaard.</p>
+      <p className="muted small">De oefenstof volgt de hoofdstukken en afspraken van <em>Leer bridge met Berry Westra</em>, deel 1. Uitleg en oefeningen zijn eigen tekst. Je voortgang wordt alleen op dit apparaat bewaard; met een link zet je hem over.</p>
+    </div>
+  )
+}
+
+// ------------------------------------------------------- overzetten
+
+/** Voortgang delen als link, of een link van een ander apparaat plakken. */
+function Transfer() {
+  const [msg, setMsg] = useState<string | null>(null)
+  const [link, setLink] = useState<string | null>(null)
+  const [paste, setPaste] = useState<string | null>(null)
+  const found = paste ? readTransfer(paste) : null
+  const share = async () => {
+    const url = transferLink()
+    setLink(null)
+    if (navigator.share) {
+      // Annuleren in het deelmenu is geen fout.
+      try { await navigator.share({ title: 'Bridge Leerpad', text: 'Mijn voortgang in Bridge Leerpad', url }) } catch { /* geannuleerd */ }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setMsg('Link gekopieerd. Open hem op je andere apparaat.')
+    } catch {
+      setLink(url)
+    }
+  }
+  return (
+    <div className="transfer">
+      <p className="muted small">Verder op een nieuwe telefoon of tablet? Deel een link met je lessen, XP, reeks en scores. Fouten herhalen en herkansingen blijven op dit apparaat.</p>
+      <div className="transfer-btns">
+        <button type="button" className="btn green" onClick={share}>Voortgang delen</button>
+        <button type="button" className="btn ghost" onClick={() => setPaste(paste === null ? '' : null)}>Voortgang overnemen</button>
+      </div>
+      {msg && <p className="small">{msg}</p>}
+      {link && <textarea className="transfer-link" readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Link met je voortgang" />}
+      {paste !== null && (found
+        ? <ImportCard data={found} onDone={() => { setPaste(null); setMsg('Voortgang overgenomen.') }} />
+        : (
+          <>
+            <textarea className="transfer-link" value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Plak hier de link van je andere apparaat" aria-label="Link plakken" />
+            {paste.trim() && <p className="small bad-text">Dit is geen geldige voortgangslink.</p>}
+          </>
+        ))}
+    </div>
+  )
+}
+
+/** Laat zien wat er overkomt, en neem het over na een bevestiging. */
+export function ImportCard({ data, onDone }: { data: Transfer; onDone: (taken: boolean) => void }) {
+  const p = data.progress as Progress
+  const done = allLessons.filter(({ lesson }) => p.completed[lesson.id]).length
+  const next = allLessons[frontier(p)]
+  return (
+    <div className="import-card">
+      <strong>Voortgang van je andere apparaat</strong>
+      <ul>
+        <li>{done} van de {allLessons.length} lessen gedaan</li>
+        <li>{next ? `Verder met: ${next.lesson.title}` : 'Alle lessen klaar'}</li>
+        <li>{p.xp} XP · reeks van {p.streak} {p.streak === 1 ? 'dag' : 'dagen'}</li>
+      </ul>
+      <p className="muted small">Wat je op dit apparaat had aan lessen, XP en scores wordt vervangen.</p>
+      <div className="transfer-btns">
+        <button type="button" className="btn green" onClick={() => { importTransfer(data); onDone(true) }}>Overnemen</button>
+        <button type="button" className="btn ghost" onClick={() => onDone(false)}>Niet nu</button>
+      </div>
     </div>
   )
 }

@@ -490,6 +490,8 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 /* Alleen de opdruk vervaagt: de kaart zelf blijft dicht, anders schijnt hij over de speelbare kaart heen. */
 .playfan.active .pcard:not(.tappable) > span { opacity: .35; }
 .playfan.active .pcard.tappable { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--brass), 0 6px 10px rgba(0, 0, 0, .18); }
+/* Met position telt offsetLeft van de kaarten vanaf de waaier. */
+.playfan { position: relative; }
 .playfan .pcard { transition: transform .12s ease, box-shadow .12s, margin-left .18s ease; }
 .playfan.active { touch-action: none; user-select: none; -webkit-user-select: none; }
 .playfan.active .pcard.peek {
@@ -522,3 +524,17 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 :root:not([data-theme="light"]) .siderows .black { color: #1a1a1a; }
 .game-body .auction, .review .auction { width: 100%; }
 .playfan { padding-top: 14px; }
+
+/* voortgang overzetten */
+.transfer { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.transfer p { margin: 0; }
+.transfer-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.transfer-btns .btn { flex: 1 1 140px; }
+.transfer-link {
+  width: 100%; min-height: 72px; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 12px; resize: vertical;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text); word-break: break-all;
+}
+.import-card { border: 1.5px solid var(--brass); background: var(--surface); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow); }
+.import-card ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+.import-card p { margin: 0; }
+.bad-text { color: var(--bad); }

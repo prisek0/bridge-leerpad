@@ -207,9 +207,27 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
 
   // ------------------------------------------------------------- spelen
 
+  // Laatste kaart terug: de tafel zoals hij was vlak voor jouw laatste kaart.
+  const [undoTo, setUndoTo] = useState<{ t: Table; notes: Note[]; flags: typeof flags.current; used: Set<string>; recorded: Set<string> } | null>(null)
+
   const playCard = (card: Card) => {
+    setUndoTo({ t, notes, flags: { ...flags.current }, used: new Set(used.current), recorded: new Set(recorded.current) })
     setPending(false)
     setT((x) => addCard(x, card))
+  }
+
+  const undo = () => {
+    if (!undoTo) return
+    flags.current = undoTo.flags
+    used.current = undoTo.used
+    recorded.current = undoTo.recorded
+    readUntil.current = 0
+    setNotes(undoTo.notes)
+    setBubble(null)
+    setPending(false)
+    setQuiz(null)
+    setT(undoTo.t)
+    setUndoTo(null)
   }
 
   const userCard = (seat: Seat, card: Card) => {
@@ -300,6 +318,7 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
   }
 
   const autoplay = () => {
+    setUndoTo(null)
     say(null)
     setQuiz(null)
     setT((x) => playOut(x.trick.length === 4 ? collect(x) : x))
@@ -371,6 +390,7 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
   function startDeal(s: Setup) {
     setSetup(s)
     setT(initialTable(s))
+    setUndoTo(null)
     setNotes([])
     setBubble(null)
     setPending(false)
@@ -450,6 +470,7 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
           {coachOn ? 'Coach aan' : 'Coach uit'}
         </button>
         <button type="button" className="chipbtn" disabled={!yourTurn} onClick={hint}>Hint</button>
+        {undoTo && t.phase === 'play' && <button type="button" className="chipbtn" onClick={undo}>↶ Terug</button>}
         {t.phase === 'play' && t.tricks.length >= 3 && <button type="button" className="chipbtn" onClick={autoplay}>Speel de rest</button>}
       </footer>
     </div>
@@ -561,14 +582,27 @@ function SouthHand({ t, yourTurn, onCard }: { t: Table; yourTurn: boolean; onCar
   const fan = useRef<HTMLDivElement>(null)
   const width = useWidth(fan)
   const margins = fanMargins(ok, width)
-  // Schuif met je vinger over de waaier: de kaart eronder komt omhoog, loslaten speelt hem.
+  // Schuif met je vinger over de waaier: de speelbare kaart die het dichtst bij je vinger ligt
+  // komt omhoog, en loslaten speelt precies die kaart.
   const [peek, setPeek] = useState<number | null>(null)
+  const peeked = useRef<number | null>(null)
   const down = useRef(false)
   const skipClick = useRef(false)
-  const at = (e: ReactPointerEvent) => {
-    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.pcard')
-    const i = el && fan.current ? [...fan.current.children].indexOf(el) : -1
-    return i >= 0 && ok[i] ? i : null
+  const lift = (i: number | null) => { peeked.current = i; setPeek(i) }
+  /** Kies op de plek in de breedte, niet op wat er onder de vinger ligt: de opgetilde kaart schuift weg. */
+  const at = (e: ReactPointerEvent): number | null => {
+    const el = fan.current
+    if (!el) return null
+    const x = e.clientX - el.getBoundingClientRect().left
+    const kids = [...el.children] as HTMLElement[]
+    let best: number | null = null, dist = Infinity
+    kids.forEach((k, i) => {
+      if (!ok[i]) return
+      const left = k.offsetLeft, right = i + 1 < kids.length ? kids[i + 1].offsetLeft : left + k.offsetWidth
+      const d = x < left ? left - x : x > right ? x - right : 0
+      if (d < dist) { dist = d; best = i }
+    })
+    return best
   }
   const d = dummyOf(t)
   const label = d === 'S' ? 'Jij (zuid) · dummy' : t.contract?.declarer === 'S' ? 'Jij (zuid) · leider' : 'Jij (zuid)'
@@ -580,21 +614,21 @@ function SouthHand({ t, yourTurn, onCard }: { t: Table; yourTurn: boolean; onCar
           if (!yourTurn) return
           down.current = true
           try { fan.current?.setPointerCapture(e.pointerId) } catch { /* pointer al weg */ }
-          setPeek(at(e))
+          lift(at(e))
         }}
-        onPointerMove={(e) => { if (yourTurn && (down.current || e.pointerType === 'mouse')) setPeek(at(e)) }}
-        onPointerUp={(e) => {
+        onPointerMove={(e) => { if (yourTurn && (down.current || e.pointerType === 'mouse')) lift(at(e)) }}
+        onPointerUp={() => {
           if (!down.current) return
           down.current = false
-          const i = at(e)
-          setPeek(null)
+          const i = peeked.current
+          lift(null)
           // De klik die na het loslaten komt, niet nog eens spelen.
           skipClick.current = true
           setTimeout(() => { skipClick.current = false }, 400)
           if (i !== null) onCard('S', cards[i])
         }}
-        onPointerCancel={() => { down.current = false; setPeek(null) }}
-        onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !down.current) setPeek(null) }}>
+        onPointerCancel={() => { down.current = false; lift(null) }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !down.current) lift(null) }}>
         {cards.map((c, i) => (
           <PlayingCard key={c.suit + c.rank} card={c} peek={peek === i} style={margins && i ? { marginLeft: margins[i] } : undefined}
             onClick={ok[i] ? () => { if (!skipClick.current) onCard('S', c) } : undefined} />

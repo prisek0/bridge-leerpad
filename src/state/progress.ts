@@ -18,6 +18,8 @@ export interface Replay {
 export interface Progress {
   /** Aantal keer dat een les is afgerond. */
   completed: Record<string, number>
+  /** Lessen die je hebt overgeslagen door verder te springen; ze tellen als gedaan. */
+  skipped: string[]
   xp: number
   streak: number
   /** Laatste dag (YYYY-MM-DD) waarop het dagdoel gehaald is. */
@@ -41,7 +43,7 @@ const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1
 const yesterdayKey = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayKey(d) }
 
 const initial = (): Progress => ({
-  completed: {}, xp: 0, streak: 0, lastStreakDay: null, today: { day: dayKey(), xp: 0 },
+  completed: {}, skipped: [], xp: 0, streak: 0, lastStreakDay: null, today: { day: dayKey(), xp: 0 },
   dailyGoal: 30, stats: {}, mistakes: [], sound: true, playAll: false, coach: true, replays: [],
 })
 
@@ -121,9 +123,63 @@ export function finishLesson(lessonId: string | null, xp: number): { streakUp: b
     lastStreakDay = day
     streakUp = true
   }
-  const completed = lessonId ? { ...state.completed, [lessonId]: (state.completed[lessonId] ?? 0) + 1 } : state.completed
-  save({ ...state, completed, xp: state.xp + xp, streak, lastStreakDay, today: { day, xp: todayXpNow } })
+  // Een overgeslagen les die je toch speelt, telt vanaf nu als één keer gespeeld.
+  const wasSkipped = !!lessonId && state.skipped.includes(lessonId)
+  const completed = lessonId ? { ...state.completed, [lessonId]: wasSkipped ? 1 : (state.completed[lessonId] ?? 0) + 1 } : state.completed
+  const skipped = wasSkipped ? state.skipped.filter((id) => id !== lessonId) : state.skipped
+  save({ ...state, completed, skipped, xp: state.xp + xp, streak, lastStreakDay, today: { day, xp: todayXpNow } })
   return { streakUp }
+}
+
+/** Spring door naar een les: de lessen ervoor tellen als gedaan. */
+export function skipLessons(ids: string[]) {
+  const todo = ids.filter((id) => !state.completed[id])
+  const completed = { ...state.completed }
+  for (const id of todo) completed[id] = 1
+  save({ ...state, completed, skipped: [...state.skipped, ...todo] })
+}
+
+// ------------------------------------------------------- overzetten
+
+/** Wat meegaat naar een ander apparaat. Fouten en herkansingen niet: die maken de link te lang. */
+const SHARED = ['completed', 'skipped', 'xp', 'streak', 'lastStreakDay', 'today', 'dailyGoal', 'stats', 'sound', 'playAll', 'coach'] as const
+type Shared = Pick<Progress, (typeof SHARED)[number]>
+export interface Transfer { v: 1; progress: Shared; theory: string[] }
+
+/** Dezelfde sleutel als in App: welke uitleg je al gezien hebt. */
+const THEORY_KEY = 'bridge-theory'
+const HASH = '#voortgang='
+
+const toCode = (text: string) => btoa(String.fromCharCode(...new TextEncoder().encode(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const fromCode = (code: string) => new TextDecoder().decode(Uint8Array.from(atob(code.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))
+
+/** Een link waarmee je je voortgang op een ander apparaat opent. */
+export function transferLink(): string {
+  const progress = Object.fromEntries(SHARED.map((k) => [k, state[k]])) as Shared
+  let theory: string[] = []
+  try { theory = JSON.parse(localStorage.getItem(THEORY_KEY) ?? '[]') } catch { /* negeren */ }
+  const data: Transfer = { v: 1, progress, theory }
+  return `${location.origin}${location.pathname}${HASH}${toCode(JSON.stringify(data))}`
+}
+
+/** Lees een link (of alleen het stuk erachter); null als het geen geldige voortgang is. */
+export function readTransfer(text: string): Transfer | null {
+  const t = text.trim()
+  const code = t.includes(HASH) ? t.slice(t.indexOf(HASH) + HASH.length) : t
+  try {
+    const data = JSON.parse(fromCode(code)) as Transfer
+    if (data?.v !== 1 || typeof data.progress?.xp !== 'number' || typeof data.progress.completed !== 'object') return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+/** Neem voortgang over; fouten en herkansingen op dit apparaat blijven staan. */
+export function importTransfer(data: Transfer) {
+  const progress = Object.fromEntries(SHARED.filter((k) => k in data.progress).map((k) => [k, data.progress[k]]))
+  try { localStorage.setItem(THEORY_KEY, JSON.stringify(data.theory ?? [])) } catch { /* negeren */ }
+  save({ ...state, ...progress })
 }
 
 export function setSetting<K extends 'sound' | 'dailyGoal' | 'playAll' | 'coach'>(key: K, value: Progress[K]) {
