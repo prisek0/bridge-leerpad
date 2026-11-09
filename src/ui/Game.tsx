@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   type Card, type Hand, type Seat, type Suit, SEAT_NAME, SUITS, SUIT_SYMBOL, cardLabel, cardsIn, hcp, holdingLabel, sameCard,
 } from '../bridge/cards'
@@ -14,8 +14,8 @@ import { trickWinner } from '../bridge/play'
 import { playOut, robotCard } from '../bridge/robot'
 import { checkPlay, commentTrick, developSuit, leadAdvice, leadExplain, planCount } from '../bridge/coach'
 import type { Exercise } from '../content/types'
-import { type Mode, type Setup, chapterName, idealContract, isNS, learnedChapters, makeSetup } from '../game/modes'
-import { type Progress, finishLesson, recordAnswer, recordSkill, setSetting } from '../state/progress'
+import { MODES, type Mode, type Setup, chapterName, idealContract, isNS, learnedChapters, makeSetup } from '../game/modes'
+import { type Progress, type Replay, finishLesson, recordAnswer, recordSkill, replayDone, saveReplay, setSetting } from '../state/progress'
 import { Auction, BidBox, HandFan, HandRows, PlayingCard, Rich, Sym } from './Cards'
 import { confetti, sounds } from './fx'
 
@@ -74,10 +74,17 @@ function retryReason(mode: Mode, t: Table, bench: Table | null, other: Table | n
   return null
 }
 
-export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () => void }) {
+/** Een speelvorm, of met `replays` een rij herkansingen (elk in zijn eigen speelvorm). */
+export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays?: Replay[]; p: Progress; onExit: () => void }) {
   const learned = useMemo(() => learnedChapters(p), [p.playAll, p.completed])
+  const [queue] = useState(replays)
+  const modeAt = (b: number) => (queue ? MODES.find((m) => m.id === queue[b - 1].mode)! : chosen)
+  const setupAt = (b: number) => (queue ? queue[b - 1].setup : makeSetup(chosen, b))
   const [board, setBoard] = useState(1)
-  const [setup, setSetup] = useState<Setup>(() => makeSetup(mode, 1))
+  const mode = modeAt(board)
+  const title = queue ? 'Herkansing' : mode.title
+  const total = queue ? queue.length : mode.deals
+  const [setup, setSetup] = useState<Setup>(() => setupAt(1))
   const [t, setT] = useState<Table>(() => initialTable(setup))
   const [bubble, setBubble] = useState<Bubble | null>(null)
   const [pending, setPending] = useState(false)
@@ -109,7 +116,13 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
   }
   const youDeclare = !!t.contract && isNS(t.contract.declarer) && mode.play
   const note = (tone: Tone, text: string) => setNotes((n) => [...n, { tone, text }])
-  const say = (b: Bubble | null) => setBubble(b)
+  // Lof of een tip blijft even staan: de robots wachten tot je het gelezen hebt.
+  const readUntil = useRef(0)
+  const [tick, setTick] = useState(0)
+  const say = (b: Bubble | null) => {
+    if (b && b.tone !== 'info' && !b.actions) readUntil.current = Date.now() + Math.min(4500, Math.max(1800, b.text.length * 40))
+    setBubble(b)
+  }
 
   // ------------------------------------------------------------- bieden
 
@@ -235,6 +248,11 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
   // Robots, slagen opruimen, speelplan en einde van het spel.
   useEffect(() => {
     if (view !== 'table' || pending) return
+    const reading = readUntil.current - Date.now()
+    if (reading > 0) {
+      const id = setTimeout(() => setTick((n) => n + 1), reading)
+      return () => clearTimeout(id)
+    }
     if (t.phase === 'done' || (t.phase === 'play' && !mode.play)) return finishDeal()
     if (t.phase === 'play' && t.trick.length === 4) {
       const id = setTimeout(() => afterTrick(collect(t)), 1050)
@@ -257,7 +275,7 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
       else setT(addCard(t, robotCard(t, seat)))
     }, t.phase === 'auction' ? 420 : 620)
     return () => clearTimeout(id)
-  }, [t, view, pending, quiz])
+  }, [t, view, pending, quiz, tick])
 
   const afterTrick = (nt: Table) => {
     setT(nt)
@@ -292,11 +310,11 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
     if (!seat) return
     if (t.phase === 'auction') {
       const ca = adviseCall(t.hands.S, t.dealer, t.calls)
-      return say({ tone: 'tip', text: `De coach zou ${bidLabel(ca.advice.bid)} bieden. ${ca.advice.why}` })
+      return setBubble({ tone: 'tip', text: `De coach zou ${bidLabel(ca.advice.bid)} bieden. ${ca.advice.why}` })
     }
     const c = robotCard(t, seat)
     const v = checkPlay(t, seat, c, new Set())
-    say({ tone: 'tip', text: `De coach zou ${cardLabel(c)} spelen${seat === 'N' ? ' (uit de dummy)' : ''}.${v?.ok && v.text ? ' ' + v.text : ''}` })
+    setBubble({ tone: 'tip', text: `De coach zou ${cardLabel(c)} spelen${seat === 'N' ? ' (uit de dummy)' : ''}.${v?.ok && v.text ? ' ' + v.text : ''}` })
   }
 
   // ------------------------------------------------------- einde spel
@@ -319,6 +337,11 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
     if (mode.id === 'club' && other && nsScore(t) > nsScore(other)) xp += 2
     // Opnieuw spelen levert alleen nog wat op als het nu wel lukt.
     if (n) xp = retry ? 0 : 2
+    // Wat beter kon komt een andere dag terug, zonder dat je de kaarten nog weet.
+    if (!n) {
+      if (queue) replayDone(queue[board - 1].id, !retry)
+      else if (retry) saveReplay(mode.id, setup, retry)
+    }
     if (xp) finishLesson(null, xp)
     if (p.sound) sounds.done()
     if (goodResult || (n && !retry)) confetti()
@@ -331,10 +354,10 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
   }
 
   const nextDeal = () => {
-    if (board >= mode.deals) return setView('summary')
+    if (board >= total) return setView('summary')
     attempt.current = { n: 0, prev: null }
     setBoard(board + 1)
-    startDeal(makeSetup(mode, board + 1))
+    startDeal(setupAt(board + 1))
   }
 
   /** Hetzelfde spel nog eens; de vorige poging telt niet meer mee in de uitslag. */
@@ -357,6 +380,7 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
     used.current = new Set()
     recorded.current = new Set()
     turnSeen.current = ''
+    readUntil.current = 0
     flags.current = { quizDone: false, made: false, finished: false }
     setView('table')
   }
@@ -365,14 +389,15 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
   useEffect(() => {
     if (t.phase === 'play' && !t.tricks.length && !t.trick.length && !mode.bid && view === 'table') {
       const c = t.contract!
-      say({ tone: 'info', text: youDeclare
+      const why = queue ? `Herkansing. Vorige keer: ${queue[board - 1].reason}\n` : ''
+      say({ tone: 'info', text: why + (youDeclare
         ? `Contract: ${declLabel(c)}. Jij speelt beide handen: zuid én de dummy (noord). ${SEAT_NAME[toAct(t)!]} komt uit.`
-        : `Contract: ${declLabel(c)}. Jij en partner (noord) spelen tegen. ${toAct(t) === 'S' ? 'Jij komt uit.' : 'Partner komt uit.'}` })
+        : `Contract: ${declLabel(c)}. Jij en partner (noord) spelen tegen. ${toAct(t) === 'S' ? 'Jij komt uit.' : 'Partner komt uit.'}`) })
     }
   }, [setup])
 
-  if (view === 'summary') return <Summary mode={mode} results={results} bidScore={bidScore} onExit={onExit} />
-  if (view === 'review') return <Review mode={mode} t={t} setup={setup} result={results[results.length - 1]} notes={notes} last={board >= mode.deals} onNext={nextDeal} onRetry={retryDeal} onExit={onExit} />
+  if (view === 'summary') return <Summary mode={mode} title={title} mixed={!!queue} results={results} bidScore={bidScore} onExit={onExit} />
+  if (view === 'review') return <Review mode={mode} title={title} total={total} t={t} setup={setup} result={results[results.length - 1]} notes={notes} last={board >= total} onNext={nextDeal} onRetry={retryDeal} onExit={onExit} />
 
   const turn = toAct(t)
   const yourTurn = !!turn && you(t).includes(turn) && !pending && !quiz
@@ -383,7 +408,7 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
       <header className="lesson-top game-top">
         <button type="button" className="close" onClick={onExit} aria-label="Stoppen">✕</button>
         <div className="gt-title">
-          <span className="gt-kicker">{mode.title} · spel {board} van {mode.deals}</span>
+          <span className="gt-kicker">{title} · spel {board} van {total}</span>
           {c && t.phase === 'play'
             ? <span className="gt-contract"><Rich text={declLabel(c)} /></span>
             : <span className="gt-contract">Bieden · gever {SEAT_NAME[t.dealer]}</span>}
@@ -531,16 +556,49 @@ function MiniFan({ hand, playable, onTap }: { hand: Hand; playable: Card[]; onTa
 
 function SouthHand({ t, yourTurn, onCard }: { t: Table; yourTurn: boolean; onCard: (s: Seat, c: Card) => void }) {
   const legal = yourTurn ? legalPlays(t, 'S') : []
+  const cards = sortForFan(t.hands.S)
+  const ok = cards.map((c) => legal.some((x) => sameCard(x, c)))
+  const fan = useRef<HTMLDivElement>(null)
+  const width = useWidth(fan)
+  const margins = fanMargins(ok, width)
+  // Schuif met je vinger over de waaier: de kaart eronder komt omhoog, loslaten speelt hem.
+  const [peek, setPeek] = useState<number | null>(null)
+  const down = useRef(false)
+  const skipClick = useRef(false)
+  const at = (e: ReactPointerEvent) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.pcard')
+    const i = el && fan.current ? [...fan.current.children].indexOf(el) : -1
+    return i >= 0 && ok[i] ? i : null
+  }
   const d = dummyOf(t)
   const label = d === 'S' ? 'Jij (zuid) · dummy' : t.contract?.declarer === 'S' ? 'Jij (zuid) · leider' : 'Jij (zuid)'
   return (
     <div className={`south ${toAct(t) === 'S' ? 'turn' : ''}`}>
       <div className="pname">{label}{yourTurn && <span className="yourturn"> · jouw beurt</span>}</div>
-      <div className={`fan playfan ${yourTurn ? 'active' : ''}`} style={{ ['--n' as string]: Math.max(t.hands.S.length, 1) }}>
-        {sortForFan(t.hands.S).map((c) => {
-          const ok = legal.some((x) => sameCard(x, c))
-          return <PlayingCard key={c.suit + c.rank} card={c} onClick={ok ? () => onCard('S', c) : undefined} state={undefined} selected={false} />
-        })}
+      <div ref={fan} className={`fan playfan ${yourTurn ? 'active' : ''}`} style={{ ['--n' as string]: Math.max(cards.length, 1) }}
+        onPointerDown={(e) => {
+          if (!yourTurn) return
+          down.current = true
+          try { fan.current?.setPointerCapture(e.pointerId) } catch { /* pointer al weg */ }
+          setPeek(at(e))
+        }}
+        onPointerMove={(e) => { if (yourTurn && (down.current || e.pointerType === 'mouse')) setPeek(at(e)) }}
+        onPointerUp={(e) => {
+          if (!down.current) return
+          down.current = false
+          const i = at(e)
+          setPeek(null)
+          // De klik die na het loslaten komt, niet nog eens spelen.
+          skipClick.current = true
+          setTimeout(() => { skipClick.current = false }, 400)
+          if (i !== null) onCard('S', cards[i])
+        }}
+        onPointerCancel={() => { down.current = false; setPeek(null) }}
+        onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !down.current) setPeek(null) }}>
+        {cards.map((c, i) => (
+          <PlayingCard key={c.suit + c.rank} card={c} peek={peek === i} style={margins && i ? { marginLeft: margins[i] } : undefined}
+            onClick={ok[i] ? () => { if (!skipClick.current) onCard('S', c) } : undefined} />
+        ))}
       </div>
     </div>
   )
@@ -548,6 +606,40 @@ function SouthHand({ t, yourTurn, onCard }: { t: Table; yourTurn: boolean; onCar
 
 const FAN: Suit[] = ['S', 'H', 'C', 'D']
 const sortForFan = (h: Hand) => [...h].sort((a, b) => FAN.indexOf(a.suit) - FAN.indexOf(b.suit) || b.rank - a.rank)
+
+const CARD_W = 52
+
+/**
+ * Hoe ver elke kaart over de vorige schuift. Een kaart is zo breed te zien als
+ * de stap van de kaart erna; speelbare kaarten krijgen die ruimte, de rest schuift in.
+ */
+function fanMargins(ok: boolean[], width: number): number[] | null {
+  const n = ok.length
+  if (n < 2 || !width) return null
+  const room = width - CARD_W
+  const even = Math.min(36, room / (n - 1))
+  const open = ok.slice(0, -1).filter(Boolean).length
+  const shut = n - 1 - open
+  let wide = even, narrow = even
+  if (open && shut) {
+    narrow = Math.min(even, 14)
+    wide = Math.max(even, Math.min(CARD_W, (room - shut * narrow) / open))
+  }
+  return ok.map((_, i) => (i ? (ok[i - 1] ? wide : narrow) - CARD_W : 0))
+}
+
+function useWidth(ref: RefObject<HTMLElement | null>): number {
+  const [w, setW] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setW(el.clientWidth)
+    const ro = new ResizeObserver(() => setW(el.clientWidth))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return w
+}
 
 // ------------------------------------------------------- speelplan
 
@@ -612,8 +704,8 @@ function resultLine(c: Contract | null, tricks: number): ReactNode {
   return <><Rich text={declLabel(c)} />: {diff >= 0 ? `gemaakt${diff ? ` +${diff}` : ''} (${tricks} slagen)` : `${-diff} down (${tricks} slagen)`}</>
 }
 
-function Review({ mode, t, setup, result, notes, last, onNext, onRetry, onExit }: {
-  mode: Mode; t: Table; setup: Setup; result: DealResult; notes: Note[]; last: boolean; onNext: () => void; onRetry: () => void; onExit: () => void
+function Review({ mode, title: modeTitle, total, t, setup, result, notes, last, onNext, onRetry, onExit }: {
+  mode: Mode; title: string; total: number; t: Table; setup: Setup; result: DealResult; notes: Note[]; last: boolean; onNext: () => void; onRetry: () => void; onExit: () => void
 }) {
   const c = t.contract
   const auctionNotes = readAuction(t.dealer, t.calls).notes
@@ -627,7 +719,7 @@ function Review({ mode, t, setup, result, notes, last, onNext, onRetry, onExit }
   return (
     <div className="review">
       <header className="lesson-top"><button type="button" className="close" onClick={onExit} aria-label="Stoppen">✕</button>
-        <div className="gt-kicker">{mode.title} · spel {result.board} van {mode.deals}{result.attempt ? ` · poging ${result.attempt + 1}` : ''}</div></header>
+        <div className="gt-kicker">{modeTitle} · spel {result.board} van {total}{result.attempt ? ` · poging ${result.attempt + 1}` : ''}</div></header>
       <main className="review-body">
         <h1>{title}</h1>
         {c ? <p className="rv-line">{mode.play ? resultLine(c, result.tricks) : <Rich text={`Eindcontract: ${declLabel(c)}`} />}</p> : <p className="rv-line">Iedereen paste.</p>}
@@ -698,7 +790,10 @@ function biddingVerdict(c: Contract | null, ideal: ReturnType<typeof idealContra
   return { tone: 'good', text: `Goed contract! ${ideal.text}` }
 }
 
-function Summary({ mode, results, bidScore, onExit }: { mode: Mode; results: DealResult[]; bidScore: { right: number; wrong: number }; onExit: () => void }) {
+function Summary({ mode, title, mixed, results, bidScore, onExit }: {
+  mode: Mode; title: string; mixed: boolean; results: DealResult[]; bidScore: { right: number; wrong: number }; onExit: () => void
+}) {
+  const club = !mixed && mode.id === 'club'
   const xp = results.reduce((a, r) => a + r.xp, 0)
   const good = results.filter((r) => (r.role === 'decl' && r.made) || (r.role === 'def' && !r.made)).length
   const played = results.filter((r) => r.role !== 'none').length
@@ -713,11 +808,13 @@ function Summary({ mode, results, bidScore, onExit }: { mode: Mode; results: Dea
           <span key={c} className={`dh-card ${c.endsWith('♥') || c.endsWith('♦') ? 'red' : 'black'}`}><span className="mc-rank">{c[0]}</span><span className="mc-suit">{c[1]}</span></span>
         ))}
       </div>
-      <h1>{mode.id === 'club' ? (you > them ? 'Gewonnen!' : you < them ? 'Net niet!' : 'Gelijkspel!') : `${mode.title} klaar!`}</h1>
-      {mode.id === 'club' && <p className="muted">Jullie {you >= 0 ? '+' : ''}{you} tegen de andere tafel {them >= 0 ? '+' : ''}{them}</p>}
+      <h1>{club ? (you > them ? 'Gewonnen!' : you < them ? 'Net niet!' : 'Gelijkspel!') : `${mixed ? 'Herkansingen' : title} klaar!`}</h1>
+      {club && <p className="muted">Jullie {you >= 0 ? '+' : ''}{you} tegen de andere tafel {them >= 0 ? '+' : ''}{them}</p>}
       <div className="done-stats">
         <div className="stat xp"><div className="stat-h">XP</div><div className="stat-v">+{xp}</div></div>
-        {played > 0 && <div className="stat acc"><div className="stat-h">{mode.id === 'tegenspel' ? 'Down' : 'Gelukt'}</div><div className="stat-v">{good}/{played}</div></div>}
+        {mixed
+          ? <div className="stat acc"><div className="stat-h">Nu goed</div><div className="stat-v">{results.filter((r) => !r.retry).length}/{results.length}</div></div>
+          : played > 0 && <div className="stat acc"><div className="stat-h">{mode.id === 'tegenspel' ? 'Down' : 'Gelukt'}</div><div className="stat-v">{good}/{played}</div></div>}
         {bids > 0 && <div className="stat time"><div className="stat-h">Bieden</div><div className="stat-v">{Math.round((bidScore.right / bids) * 100)}%</div></div>}
       </div>
       <button type="button" className="btn big green" onClick={onExit}>Doorgaan</button>

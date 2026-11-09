@@ -7,6 +7,7 @@ import { type LessonResult, LessonDone, LessonRunner } from './LessonRunner'
 import { type Drill, PathScreen, PlayScreen, PracticeScreen, ProfileScreen, TheoryScreen, TopBar } from './Screens'
 import { Game } from './Game'
 import type { Mode } from '../game/modes'
+import type { Replay } from '../state/progress'
 
 type Tab = 'pad' | 'spelen' | 'oefenen' | 'profiel'
 type Screen =
@@ -14,7 +15,7 @@ type Screen =
   | { kind: 'theory'; chapter: Chapter; then?: Lesson }
   | { kind: 'lesson'; title: string; exercises: Exercise[]; lessonId: string | null; review?: boolean }
   | { kind: 'done'; result: LessonResult }
-  | { kind: 'game'; mode: Mode }
+  | { kind: 'game'; mode: Mode; replays?: Replay[] }
 
 const seenTheory = () => { try { return new Set<string>(JSON.parse(localStorage.getItem('bridge-theory') ?? '[]')) } catch { return new Set<string>() } }
 const markTheory = (id: string) => { try { const s = seenTheory(); s.add(id); localStorage.setItem('bridge-theory', JSON.stringify([...s])) } catch { /* negeren */ } }
@@ -46,14 +47,14 @@ export default function App() {
       onClose={home} onDone={(result) => setScreen({ kind: 'done', result })} />
   }
   if (screen.kind === 'done') return <LessonDone result={screen.result} onContinue={home} />
-  if (screen.kind === 'game') return <Game key={screen.mode.id} mode={screen.mode} p={p} onExit={home} />
+  if (screen.kind === 'game') return <Game key={screen.mode.id + (screen.replays ? '-r' : '')} mode={screen.mode} replays={screen.replays} p={p} onExit={home} />
 
   return (
     <div className="app">
       <TopBar p={p} />
       <main className="content">
         {tab === 'pad' && <PathScreen p={p} onStart={startLesson} onTheory={(c) => setScreen({ kind: 'theory', chapter: c })} />}
-        {tab === 'spelen' && <PlayScreen p={p} onPlay={(mode) => setScreen({ kind: 'game', mode })} />}
+        {tab === 'spelen' && <PlayScreen p={p} onPlay={(mode, replays) => setScreen({ kind: 'game', mode, replays })} />}
         {tab === 'oefenen' && <PracticeScreen p={p} onDrill={startDrill} onMistakes={startMistakes} />}
         {tab === 'profiel' && <ProfileScreen p={p} />}
       </main>

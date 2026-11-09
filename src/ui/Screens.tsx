@@ -2,7 +2,7 @@ import { useLayoutEffect, useState } from 'react'
 import { chapters } from '../content/chapters'
 import type { Chapter, Generator, Lesson } from '../content/types'
 import * as G from '../content/generators'
-import { type Progress, currentStreak, resetProgress, setSetting, todayXp } from '../state/progress'
+import { type Progress, type Replay, currentStreak, readyReplays, resetProgress, setSetting, todayXp } from '../state/progress'
 import { MODES, type Mode, chapterName, learnedChapters } from '../game/modes'
 import { Rich } from './Cards'
 
@@ -204,8 +204,11 @@ function statFor(p: Progress, d: Drill): number | null {
 
 // ---------------------------------------------------------------- spelen
 
-export function PlayScreen({ p, onPlay }: { p: Progress; onPlay: (m: Mode) => void }) {
+export function PlayScreen({ p, onPlay }: { p: Progress; onPlay: (m: Mode, replays?: Replay[]) => void }) {
   const learned = learnedChapters(p)
+  // De oudste eerst, vier per keer.
+  const ready = readyReplays(p).slice(0, 4)
+  const later = p.replays.length - readyReplays(p).length
   return (
     <div className="practice">
       <h1>Spelen</h1>
@@ -220,6 +223,15 @@ export function PlayScreen({ p, onPlay }: { p: Progress; onPlay: (m: Mode) => vo
             </button>
           )
         })}
+        {p.replays.length > 0 && (
+          <button type="button" className="drill mode mistakes" disabled={!ready.length}
+            onClick={() => onPlay(MODES.find((m) => m.id === ready[0].mode)!, ready)}>
+            <span className="drill-icon">🔁</span>
+            <span><strong>Herkansingen</strong><br /><span className="muted">{ready.length
+              ? `${ready.length} ${ready.length === 1 ? 'spel dat' : 'spellen die'} beter kon${ready.length === 1 ? '' : 'den'}. Weet je nog hoe het moest?`
+              : `${later} ${later === 1 ? 'spel komt' : 'spellen komen'} morgen terug, als je de kaarten vergeten bent.`}</span></span>
+          </button>
+        )}
       </div>
       <label className="setting"><span>Coach geeft tips tijdens het spel</span><input type="checkbox" checked={p.coach} onChange={(e) => setSetting('coach', e.target.checked)} /></label>
       <label className="setting"><span>Ook stof die ik nog niet gehad heb</span><input type="checkbox" checked={p.playAll} onChange={(e) => setSetting('playAll', e.target.checked)} /></label>

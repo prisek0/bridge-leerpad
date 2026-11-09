@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useState } from 'react'
+import { type CSSProperties, Fragment, type ReactNode, useState } from 'react'
 import {
   type Card, type Hand, type Seat, type Suit, SEAT_NAME, SEAT_SHORT, STRAINS, SUITS, SUIT_SYMBOL,
   cardsIn, fanSort, holdingLabel, isRed, rankLabel, sameCard,
@@ -26,10 +26,13 @@ export function Sym({ s }: { s: Suit }) {
   return <span className={isRed(s) ? 'red' : 'black'}>{SUIT_SYMBOL[s]}</span>
 }
 
-export function PlayingCard({ card, selected, state, onClick, small }: {
+export function PlayingCard({ card, selected, state, onClick, small, peek, style }: {
   card: Card; selected?: boolean; state?: 'right' | 'wrong' | 'missed'; onClick?: () => void; small?: boolean
+  /** Uitvergroot omdat je vinger erop ligt. */
+  peek?: boolean
+  style?: CSSProperties
 }) {
-  const cls = ['pcard', isRed(card.suit) ? 'red' : 'black', selected && 'sel', state, onClick && 'tappable', small && 'small'].filter(Boolean).join(' ')
+  const cls = ['pcard', isRed(card.suit) ? 'red' : 'black', selected && 'sel', state, onClick && 'tappable', small && 'small', peek && 'peek'].filter(Boolean).join(' ')
   const label = `${SUIT_SYMBOL[card.suit]}${rankLabel(card.rank)}`
   const body = (
     <>
@@ -38,8 +41,8 @@ export function PlayingCard({ card, selected, state, onClick, small }: {
     </>
   )
   return onClick
-    ? <button type="button" className={cls} onClick={onClick} aria-label={label} aria-pressed={selected}>{body}</button>
-    : <div className={cls} aria-label={label}>{body}</div>
+    ? <button type="button" className={cls} style={style} onClick={onClick} aria-label={label} aria-pressed={selected}>{body}</button>
+    : <div className={cls} style={style} aria-label={label}>{body}</div>
 }
 
 /** Een hand als waaier van kaarten. */

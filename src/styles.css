@@ -487,9 +487,15 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
 .minifan .pcard.tappable:active { transform: translateY(-6px); }
 .south { display: flex; flex-direction: column; align-items: center; }
 .playfan .pcard:not(.tappable) { filter: none; }
-.playfan.active .pcard:not(.tappable) { opacity: .45; }
+/* Alleen de opdruk vervaagt: de kaart zelf blijft dicht, anders schijnt hij over de speelbare kaart heen. */
+.playfan.active .pcard:not(.tappable) > span { opacity: .35; }
 .playfan.active .pcard.tappable { transform: translateY(-6px); box-shadow: 0 0 0 2px var(--brass), 0 6px 10px rgba(0, 0, 0, .18); }
-.playfan.active .pcard.tappable:active { transform: translateY(-14px); }
+.playfan .pcard { transition: transform .12s ease, box-shadow .12s, margin-left .18s ease; }
+.playfan.active { touch-action: none; user-select: none; -webkit-user-select: none; }
+.playfan.active .pcard.peek {
+  transform: translateY(-30px) scale(1.35); transform-origin: 50% 100%; z-index: 2;
+  box-shadow: 0 0 0 2px var(--brass), 0 12px 20px rgba(0, 0, 0, .3);
+}
 
 /* nabespreking */
 .review-body { flex: 1; padding: 6px 16px 20px; }
