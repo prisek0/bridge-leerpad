@@ -29,15 +29,49 @@ export interface DealResult {
   tricks: number
   ns: number
   other?: { contract: Contract | null; tricks: number; ns: number }
+  /** XP voor dit spel in totaal, over alle pogingen. */
   xp: number
+  /** XP van deze poging. */
+  gain: number
   role: 'decl' | 'def' | 'none'
   made: boolean | null
+  /** Waarom het beter kon; dan mag je het spel opnieuw spelen. */
+  retry: string | null
+  /** 0 is de eerste keer. */
+  attempt: number
+  prev?: { contract: Contract | null; tricks: number }
 }
 
 const declLabel = (c: Contract) => `${contractLabel(c)} door ${SEAT_NAME[c.declarer]}`
 
 function initialTable(s: Setup): Table {
   return s.calls ? tableWithAuction(s.deal, s.dealer, s.calls) : newTable(s.deal, s.dealer)
+}
+
+/**
+ * Kon het beter? De robots spelen altijd hetzelfde, dus wat zij met dezelfde
+ * kaarten halen is een eerlijke maatstaf. Geeft de reden, of null als het goed was.
+ */
+function retryReason(mode: Mode, t: Table, bench: Table | null, other: Table | null, notes: Note[], ideal: ReturnType<typeof idealContract>): string | null {
+  const c = t.contract
+  if (mode.id === 'bieden') {
+    if (notes.some((n) => n.tone === 'bad')) return 'Je week in de bieding af van de afspraken.'
+    return biddingVerdict(c, ideal).tone === 'good' ? null : 'Er zat een beter contract in.'
+  }
+  if (mode.id === 'club') {
+    if (!other || nsScore(t) >= nsScore(other)) return null
+    return `De andere tafel scoorde ${nsScore(other) - nsScore(t)} punten meer met dezelfde kaarten.`
+  }
+  if (!c || !bench) return null
+  const mine = declarerTricks(t), robot = declarerTricks(bench)
+  const need = 6 + c.level
+  if (isNS(c.declarer)) {
+    if (mine < robot) return `De robot haalde met dezelfde kaarten ${robot} slagen, jij ${mine}.`
+    if (mine < need) return `Het contract ging ${need - mine} down. Lukt het met een ander plan?`
+    return null
+  }
+  if (mine > robot) return `De robots haalden met dezelfde kaarten ${13 - robot} slagen in de verdediging, jullie ${13 - mine}.`
+  return null
 }
 
 export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () => void }) {
@@ -63,6 +97,9 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
     const calls = robotAuction(setup.deal, setup.dealer)
     return playOut(tableWithAuction(setup.deal, setup.dealer, calls))
   }, [setup])
+  // Bij afspelen en tegenspelen: hoe de robots dit spel zelf afspelen.
+  const bench = useMemo(() => (mode.play && !mode.bid ? playOut(initialTable(setup)) : null), [setup])
+  const attempt = useRef<{ n: number; prev: DealResult | null }>({ n: 0, prev: null })
   const coachOn = p.coach
 
   const you = (x: Table): Seat[] => {
@@ -276,13 +313,18 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
       made = tricks >= 6 + c.level
     }
     const goodResult = role === 'decl' ? made : role === 'def' ? !made : null
+    const retry = retryReason(mode, t, bench, other, notes, idealContract(setup.deal))
+    const { n, prev } = attempt.current
     let xp = 3 + Math.min(3, bidScore.right) + (goodResult ? 2 : 0)
     if (mode.id === 'club' && other && nsScore(t) > nsScore(other)) xp += 2
-    finishLesson(null, xp)
+    // Opnieuw spelen levert alleen nog wat op als het nu wel lukt.
+    if (n) xp = retry ? 0 : 2
+    if (xp) finishLesson(null, xp)
     if (p.sound) sounds.done()
-    if (goodResult) confetti()
+    if (goodResult || (n && !retry)) confetti()
     setResults((r) => [...r, {
-      board, contract: c, tricks, ns: mode.play ? nsScore(t) : 0, xp, role, made,
+      board, contract: c, tricks, ns: mode.play ? nsScore(t) : 0, xp: (prev?.xp ?? 0) + xp, gain: xp, role, made, retry, attempt: n,
+      prev: prev ? { contract: prev.contract, tricks: prev.tricks } : undefined,
       other: other ? { contract: other.contract, tricks: declarerTricks(other), ns: nsScore(other) } : undefined,
     }])
     setView('review')
@@ -290,8 +332,20 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
 
   const nextDeal = () => {
     if (board >= mode.deals) return setView('summary')
-    const s = makeSetup(mode, board + 1)
+    attempt.current = { n: 0, prev: null }
     setBoard(board + 1)
+    startDeal(makeSetup(mode, board + 1))
+  }
+
+  /** Hetzelfde spel nog eens; de vorige poging telt niet meer mee in de uitslag. */
+  const retryDeal = () => {
+    attempt.current = { n: attempt.current.n + 1, prev: results[results.length - 1] }
+    setResults((r) => r.slice(0, -1))
+    // Een nieuw object, zodat de uitleg aan het begin opnieuw komt.
+    startDeal({ ...setup })
+  }
+
+  function startDeal(s: Setup) {
     setSetup(s)
     setT(initialTable(s))
     setNotes([])
@@ -302,6 +356,7 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
     setShowAuction(false)
     used.current = new Set()
     recorded.current = new Set()
+    turnSeen.current = ''
     flags.current = { quizDone: false, made: false, finished: false }
     setView('table')
   }
@@ -317,7 +372,7 @@ export function Game({ mode, p, onExit }: { mode: Mode; p: Progress; onExit: () 
   }, [setup])
 
   if (view === 'summary') return <Summary mode={mode} results={results} bidScore={bidScore} onExit={onExit} />
-  if (view === 'review') return <Review mode={mode} t={t} setup={setup} result={results[results.length - 1]} notes={notes} last={board >= mode.deals} onNext={nextDeal} onExit={onExit} />
+  if (view === 'review') return <Review mode={mode} t={t} setup={setup} result={results[results.length - 1]} notes={notes} last={board >= mode.deals} onNext={nextDeal} onRetry={retryDeal} onExit={onExit} />
 
   const turn = toAct(t)
   const yourTurn = !!turn && you(t).includes(turn) && !pending && !quiz
@@ -557,8 +612,8 @@ function resultLine(c: Contract | null, tricks: number): ReactNode {
   return <><Rich text={declLabel(c)} />: {diff >= 0 ? `gemaakt${diff ? ` +${diff}` : ''} (${tricks} slagen)` : `${-diff} down (${tricks} slagen)`}</>
 }
 
-function Review({ mode, t, setup, result, notes, last, onNext, onExit }: {
-  mode: Mode; t: Table; setup: Setup; result: DealResult; notes: Note[]; last: boolean; onNext: () => void; onExit: () => void
+function Review({ mode, t, setup, result, notes, last, onNext, onRetry, onExit }: {
+  mode: Mode; t: Table; setup: Setup; result: DealResult; notes: Note[]; last: boolean; onNext: () => void; onRetry: () => void; onExit: () => void
 }) {
   const c = t.contract
   const auctionNotes = readAuction(t.dealer, t.calls).notes
@@ -572,7 +627,7 @@ function Review({ mode, t, setup, result, notes, last, onNext, onExit }: {
   return (
     <div className="review">
       <header className="lesson-top"><button type="button" className="close" onClick={onExit} aria-label="Stoppen">✕</button>
-        <div className="gt-kicker">{mode.title} · spel {result.board} van {mode.deals}</div></header>
+        <div className="gt-kicker">{mode.title} · spel {result.board} van {mode.deals}{result.attempt ? ` · poging ${result.attempt + 1}` : ''}</div></header>
       <main className="review-body">
         <h1>{title}</h1>
         {c ? <p className="rv-line">{mode.play ? resultLine(c, result.tricks) : <Rich text={`Eindcontract: ${declLabel(c)}`} />}</p> : <p className="rv-line">Iedereen paste.</p>}
@@ -588,7 +643,11 @@ function Review({ mode, t, setup, result, notes, last, onNext, onExit }: {
             </div>
           </div>
         )}
-        <div className="xp-gain">+{result.xp} XP</div>
+        {result.prev && mode.play && <p className="muted small">Vorige poging: {resultLine(result.prev.contract, result.prev.tricks)}</p>}
+        {result.retry
+          ? <CoachBubble b={{ tone: 'tip', text: `${result.retry}\nWil je het nog eens proberen? Je krijgt dezelfde kaarten.`, actions: [{ label: 'Opnieuw spelen', primary: true, run: onRetry }] }} />
+          : result.attempt > 0 && <CoachBubble b={{ tone: 'good', text: 'Nu is het gelukt. Goed dat je het nog eens probeerde!' }} />}
+        {result.gain > 0 && <div className="xp-gain">+{result.gain} XP</div>}
 
         {notes.filter((n) => n.tone !== 'info').length > 0 && (
           <section className="rv-sec">
@@ -629,7 +688,7 @@ function Review({ mode, t, setup, result, notes, last, onNext, onExit }: {
 
 function biddingVerdict(c: Contract | null, ideal: ReturnType<typeof idealContract>): { tone: Tone; text: string } {
   if (!c || !isNS(c.declarer)) {
-    if (ideal.pts >= 23) return { tone: 'tip', text: `De tegenpartij kreeg het contract, maar ${ideal.text}` }
+    if (ideal.pts >= 23) return { tone: 'tip', text: `${c ? 'De tegenpartij kreeg het contract' : 'Iedereen paste'}, maar ${ideal.text}` }
     return { tone: 'good', text: `De tegenpartij speelt. ${ideal.text}` }
   }
   const game = contractScore(c, 13).parts.some((x) => x.startsWith('manche'))
