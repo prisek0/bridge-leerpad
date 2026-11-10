@@ -556,21 +556,79 @@ function SideRows({ hand }: { hand: Hand }) {
   )
 }
 
+/**
+ * Schuif met je vinger over de kaarten: de speelbare kaart die het dichtst bij je vinger ligt
+ * komt omhoog, en loslaten speelt precies die kaart. Gekozen wordt op de plek van de kaarten,
+ * niet op wat er onder de vinger ligt: de opgetilde kaart schuift weg.
+ */
+function useSlidePick(active: boolean, ok: boolean[], play: (i: number) => void) {
+  const box = useRef<HTMLDivElement>(null)
+  const [peek, setPeek] = useState<number | null>(null)
+  const peeked = useRef<number | null>(null)
+  const down = useRef(false)
+  const skipClick = useRef(false)
+  const lift = (i: number | null) => { peeked.current = i; setPeek(i) }
+  const at = (e: ReactPointerEvent): number | null => {
+    const el = box.current
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    const x = e.clientX - r.left, y = e.clientY - r.top
+    const kids = [...el.querySelectorAll<HTMLElement>('.pcard')]
+    let best: number | null = null, dist = Infinity
+    kids.forEach((k, i) => {
+      if (!ok[i]) return
+      // Zichtbaar is het stuk tot de volgende kaart in dezelfde rij.
+      const next = kids[i + 1]
+      const left = k.offsetLeft, top = k.offsetTop
+      const right = next && next.parentElement === k.parentElement ? next.offsetLeft : left + k.offsetWidth
+      const bottom = top + k.offsetHeight
+      const d = (x < left ? left - x : x > right ? x - right : 0) + (y < top ? top - y : y > bottom ? y - bottom : 0)
+      if (d < dist) { dist = d; best = i }
+    })
+    return best
+  }
+  const handlers = {
+    onPointerDown: (e: ReactPointerEvent) => {
+      if (!active) return
+      down.current = true
+      try { box.current?.setPointerCapture(e.pointerId) } catch { /* pointer al weg */ }
+      lift(at(e))
+    },
+    onPointerMove: (e: ReactPointerEvent) => { if (active && (down.current || e.pointerType === 'mouse')) lift(at(e)) },
+    onPointerUp: () => {
+      if (!down.current) return
+      down.current = false
+      const i = peeked.current
+      lift(null)
+      // De klik die na het loslaten komt, niet nog eens spelen.
+      skipClick.current = true
+      setTimeout(() => { skipClick.current = false }, 400)
+      if (i !== null) play(i)
+    },
+    onPointerCancel: () => { down.current = false; lift(null) },
+    onPointerLeave: (e: ReactPointerEvent) => { if (e.pointerType === 'mouse' && !down.current) lift(null) },
+  }
+  /** Gewone klik (ook met het toetsenbord), behalve vlak na het loslaten. */
+  const click = (i: number) => (ok[i] ? () => { if (!skipClick.current) play(i) } : undefined)
+  return { box, peek, handlers, click }
+}
+
 function MiniFan({ hand, playable, onTap }: { hand: Hand; playable: Card[]; onTap: (c: Card) => void }) {
+  const groups = SUITS.map((s) => hand.filter((c) => c.suit === s)).filter((cs) => cs.length)
+  const cards = groups.flat()
+  const ok = cards.map((c) => playable.some((x) => sameCard(x, c)))
+  const pick = useSlidePick(playable.length > 0, ok, (i) => onTap(cards[i]))
+  let i = 0
   return (
-    <div className="minifan">
-      {SUITS.map((s) => {
-        const cs = hand.filter((c) => c.suit === s)
-        if (!cs.length) return null
-        return (
-          <div key={s} className="mf-suit">
-            {cs.map((c) => {
-              const ok = playable.some((x) => sameCard(x, c))
-              return <PlayingCard key={c.rank} card={c} small onClick={ok ? () => onTap(c) : undefined} state={undefined} selected={false} />
-            })}
-          </div>
-        )
-      })}
+    <div ref={pick.box} className={`minifan ${playable.length ? 'active' : ''}`} {...pick.handlers}>
+      {groups.map((cs) => (
+        <div key={cs[0].suit} className="mf-suit">
+          {cs.map((c) => {
+            const n = i++
+            return <PlayingCard key={c.rank} card={c} small peek={pick.peek === n} onClick={pick.click(n)} />
+          })}
+        </div>
+      ))}
     </div>
   )
 }
@@ -579,59 +637,17 @@ function SouthHand({ t, yourTurn, onCard }: { t: Table; yourTurn: boolean; onCar
   const legal = yourTurn ? legalPlays(t, 'S') : []
   const cards = sortForFan(t.hands.S)
   const ok = cards.map((c) => legal.some((x) => sameCard(x, c)))
-  const fan = useRef<HTMLDivElement>(null)
-  const width = useWidth(fan)
+  const pick = useSlidePick(yourTurn, ok, (i) => onCard('S', cards[i]))
+  const width = useWidth(pick.box)
   const margins = fanMargins(ok, width)
-  // Schuif met je vinger over de waaier: de speelbare kaart die het dichtst bij je vinger ligt
-  // komt omhoog, en loslaten speelt precies die kaart.
-  const [peek, setPeek] = useState<number | null>(null)
-  const peeked = useRef<number | null>(null)
-  const down = useRef(false)
-  const skipClick = useRef(false)
-  const lift = (i: number | null) => { peeked.current = i; setPeek(i) }
-  /** Kies op de plek in de breedte, niet op wat er onder de vinger ligt: de opgetilde kaart schuift weg. */
-  const at = (e: ReactPointerEvent): number | null => {
-    const el = fan.current
-    if (!el) return null
-    const x = e.clientX - el.getBoundingClientRect().left
-    const kids = [...el.children] as HTMLElement[]
-    let best: number | null = null, dist = Infinity
-    kids.forEach((k, i) => {
-      if (!ok[i]) return
-      const left = k.offsetLeft, right = i + 1 < kids.length ? kids[i + 1].offsetLeft : left + k.offsetWidth
-      const d = x < left ? left - x : x > right ? x - right : 0
-      if (d < dist) { dist = d; best = i }
-    })
-    return best
-  }
   const d = dummyOf(t)
   const label = d === 'S' ? 'Jij (zuid) · dummy' : t.contract?.declarer === 'S' ? 'Jij (zuid) · leider' : 'Jij (zuid)'
   return (
     <div className={`south ${toAct(t) === 'S' ? 'turn' : ''}`}>
       <div className="pname">{label}{yourTurn && <span className="yourturn"> · jouw beurt</span>}</div>
-      <div ref={fan} className={`fan playfan ${yourTurn ? 'active' : ''}`} style={{ ['--n' as string]: Math.max(cards.length, 1) }}
-        onPointerDown={(e) => {
-          if (!yourTurn) return
-          down.current = true
-          try { fan.current?.setPointerCapture(e.pointerId) } catch { /* pointer al weg */ }
-          lift(at(e))
-        }}
-        onPointerMove={(e) => { if (yourTurn && (down.current || e.pointerType === 'mouse')) lift(at(e)) }}
-        onPointerUp={() => {
-          if (!down.current) return
-          down.current = false
-          const i = peeked.current
-          lift(null)
-          // De klik die na het loslaten komt, niet nog eens spelen.
-          skipClick.current = true
-          setTimeout(() => { skipClick.current = false }, 400)
-          if (i !== null) onCard('S', cards[i])
-        }}
-        onPointerCancel={() => { down.current = false; lift(null) }}
-        onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !down.current) lift(null) }}>
+      <div ref={pick.box} className={`fan playfan ${yourTurn ? 'active' : ''}`} style={{ ['--n' as string]: Math.max(cards.length, 1) }} {...pick.handlers}>
         {cards.map((c, i) => (
-          <PlayingCard key={c.suit + c.rank} card={c} peek={peek === i} style={margins && i ? { marginLeft: margins[i] } : undefined}
-            onClick={ok[i] ? () => { if (!skipClick.current) onCard('S', c) } : undefined} />
+          <PlayingCard key={c.suit + c.rank} card={c} peek={pick.peek === i} style={margins && i ? { marginLeft: margins[i] } : undefined} onClick={pick.click(i)} />
         ))}
       </div>
     </div>
