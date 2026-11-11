@@ -10,7 +10,8 @@ import {
 } from './cards'
 import {
   type Advice, type Bid, ALL_BIDS, answerToDouble, bidLabel, bidRank, call, chooseSuit, competitiveAction,
-  cheapestLevel, openingBid, parseBid, responseTo2C, responseToNT, responseToSuit, staymanAnswer,
+  afterStayman, afterTransfer, cheapestLevel, ntOpenerAgain, openingBid, parseBid, responseTo2C, responseToNT, responseToSuit,
+  staymanAnswer,
 } from './bidding'
 
 export interface Contract {
@@ -89,6 +90,12 @@ export type Situation =
   | { kind: 'respond-2c' }
   | { kind: 'overcall'; opened: Suit }
   | { kind: 'advance-double'; opened: Suit }
+  /** Antwoorder na het antwoord op Stayman (♦ = geen vierkaart hoog). */
+  | { kind: 'stayman-rebid'; level: 1 | 2; answer: Suit }
+  /** Antwoorder nadat partner de transfer uitvoerde. */
+  | { kind: 'transfer-rebid'; level: 1 | 2; suit: Suit }
+  /** De SA-openaar na het volgende bod van partner; `answer` is zijn antwoord op Stayman. */
+  | { kind: 'nt-rebid'; level: 1 | 2; answer: Suit | null; reply: Bid }
   | { kind: 'free' }
 
 export function situation(dealer: Seat, calls: Bid[]): Situation {
@@ -123,6 +130,43 @@ export function situation(dealer: Seat, calls: Bid[]): Situation {
     if (pa && pa.level === 1 && pa.strain !== 'NT' && a.seat === leftOf(me) && b.c === 'X' && b.i === a.i + 1 && n === b.i + 2)
       return { kind: 'advance-double', opened: pa.strain }
   }
+  return ntFollowUp(quietAuction(dealer, calls))
+}
+
+/**
+ * Jullie biedingen, als de tegenpartij alleen paste en jullie na de opening
+ * steeds boden. `mine`: geboden door de speler die nu aan de beurt is.
+ */
+function quietAuction(dealer: Seat, calls: Bid[]): { bid: Bid; mine: boolean }[] | null {
+  const me = seatAt(dealer, calls.length)
+  const out: { bid: Bid; mine: boolean }[] = []
+  for (let i = 0; i < calls.length; i++) {
+    const s = seatAt(dealer, i)
+    if (!sameSide(s, me)) {
+      if (calls[i] !== 'P') return null
+    } else if (calls[i] === 'P') {
+      if (out.length) return null
+    } else if (parseBid(calls[i])) out.push({ bid: calls[i], mine: s === me })
+    else return null
+  }
+  return out
+}
+
+/** Verder na een 1SA- of 2SA-opening zonder tussenbod. */
+function ntFollowUp(q: { bid: Bid; mine: boolean }[] | null): Situation {
+  if (!q || q.length < 2) return { kind: 'free' }
+  const level = q[0].bid === '1NT' ? 1 : q[0].bid === '2NT' ? 2 : 0
+  if (level !== 1 && level !== 2) return { kind: 'free' }
+  const [, ask, ans, reply] = q.map((x) => x.bid)
+  const stayman = ask === call(level + 1, 'C')
+  const answer = (['D', 'H', 'S'] as const).find((s) => ans === call(level + 1, s)) ?? null
+  if (!q[0].mine && q.length === 3) {
+    if (stayman && answer) return { kind: 'stayman-rebid', level, answer }
+    if (ask === call(level + 1, 'D') && ans === call(level + 1, 'H')) return { kind: 'transfer-rebid', level, suit: 'H' }
+    if (ask === call(level + 1, 'H') && ans === call(level + 1, 'S')) return { kind: 'transfer-rebid', level, suit: 'S' }
+  }
+  if (q[0].mine && q.length === 2) return { kind: 'nt-rebid', level, answer: null, reply: ask }
+  if (q[0].mine && q.length === 4 && stayman && answer) return { kind: 'nt-rebid', level, answer, reply }
   return { kind: 'free' }
 }
 
@@ -139,6 +183,9 @@ function adviseFor(sit: Situation, hand: Hand): Advice | null {
     case 'respond-2c': return responseTo2C(hand)
     case 'overcall': return competitiveAction(sit.opened, hand)
     case 'advance-double': return answerToDouble(sit.opened, hand)
+    case 'stayman-rebid': return afterStayman(sit.level, sit.answer, hand)
+    case 'transfer-rebid': return afterTransfer(sit.level, sit.suit, hand)
+    case 'nt-rebid': return ntOpenerAgain(sit.level, sit.answer, sit.reply, hand)
     case 'free': return null
   }
 }
@@ -149,7 +196,9 @@ export function chapterOf(sit: Situation, a: Advice): string {
     case 'open': return a.bid.startsWith('2') ? 'h11' : 'h5a'
     case 'respond-suit': return 'h6'
     case 'respond-nt': return sit.level === 2 ? 'h11' : ['P', '2NT', '3NT'].includes(a.bid) ? 'h5b' : 'h7'
-    case 'stayman-answer': case 'transfer-accept': return 'h7'
+    case 'stayman-answer': case 'transfer-accept': case 'stayman-rebid': case 'transfer-rebid':
+      return sit.level === 2 ? 'h11' : 'h7'
+    case 'nt-rebid': return sit.level === 2 ? 'h11' : sit.answer ? 'h7' : 'h5b'
     case 'respond-2c': return 'h11'
     default: return 'h10'
   }
@@ -161,8 +210,9 @@ export function skillOf(sit: Situation, a: Advice): string {
     case 'open': return 'openen'
     case 'respond-suit': return 'antwoorden'
     case 'respond-nt': return sit.level === 2 ? '2SA antwoorden' : a.bid === '2C' ? 'Stayman' : ['2D', '2H'].includes(a.bid) ? 'Jacoby' : '1SA antwoorden'
-    case 'stayman-answer': return 'Stayman'
-    case 'transfer-accept': return 'Jacoby'
+    case 'stayman-answer': case 'stayman-rebid': return 'Stayman'
+    case 'transfer-accept': case 'transfer-rebid': return 'Jacoby'
+    case 'nt-rebid': return sit.level === 2 ? '2SA antwoorden' : sit.answer ? 'Stayman' : '1SA antwoorden'
     case 'respond-2c': return '2♣'
     case 'overcall': return 'tussenbieden'
     case 'advance-double': return 'informatiedoublet'

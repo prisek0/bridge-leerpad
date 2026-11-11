@@ -181,6 +181,52 @@ export function staymanAnswer(level: 1 | 2, hand: Hand): Advice {
   return { bid: call(l, 'D'), why: `Geen vierkaart hoog: ${l}♦ is het afgesproken 'nee'.` }
 }
 
+// ------------------------------------ verder na 1SA en 2SA: de monoloog
+
+/** De antwoorder na het antwoord op Stayman. `answer` is ♦ (geen vierkaart hoog), ♥ of ♠. */
+export function afterStayman(level: 1 | 2, answer: Suit, hand: Hand): Advice | null {
+  const p = hcp(hand)
+  const sh = shape(hand)
+  const fit = answer !== 'D' && sh[answer] >= 4 ? answer : null
+  if (!fit && (sh.H >= 5 || sh.S >= 5)) return null
+  const noFit = answer === 'D' ? 'Partner heeft geen vierkaart hoog' : `Partner heeft een vierkaart ${SUIT_NAME[answer]}, jij niet`
+  if (level === 1 && p >= 8 && p <= 9) {
+    if (fit) return { bid: call(3, fit), why: `Partner heeft ook vier ${SUIT_NAME[fit]}: een fit! Met ${pts(p)} hebben jullie samen 23-26 punten. Nodig uit met 3${S(fit)}.` }
+    return { bid: '2NT', why: `${noFit}: geen fit. Met ${pts(p)} nodig je uit met 2SA, net als zonder Stayman.` }
+  }
+  if (p >= (level === 1 ? 10 : 4) && p <= (level === 1 ? 15 : 10)) {
+    if (fit) return { bid: call(4, fit), why: `Partner heeft ook vier ${SUIT_NAME[fit]}: een fit, en samen minstens 25 punten. Speel liever 4${S(fit)} dan 3SA.` }
+    return { bid: '3NT', why: `${noFit}: geen fit. Met ${pts(p)} zijn er samen minstens 25 punten: 3SA.` }
+  }
+  return null
+}
+
+/** De antwoorder nadat partner de transfer uitvoerde. Alleen de zwakke hand heeft een afspraak: passen. */
+export function afterTransfer(level: 1 | 2, suit: Suit, hand: Hand): Advice | null {
+  const p = hcp(hand)
+  if (p > (level === 1 ? 7 : 3)) return null
+  return { bid: 'P', why: `Met ${pts(p)} zit er geen manche in. Je wilde in ${SUIT_NAME[suit]} spelen in plaats van in ${level}SA: pas op ${level + 1}${S(suit)}.` }
+}
+
+/**
+ * De 1SA- of 2SA-openaar na het volgende bod van partner (`reply`). Partner
+ * bepaalt het contract: een manche laat je staan, op een uitnodiging ga je
+ * door als je niet minimaal bent. `answer` is jouw antwoord op Stayman.
+ */
+export function ntOpenerAgain(level: 1 | 2, answer: Suit | null, reply: Bid, hand: Hand): Advice | null {
+  const p = hcp(hand)
+  const r = parseBid(reply)
+  if (!r) return null
+  // Na 2♥ kan partner een vierkaart schoppen hebben. Heb jij die ook, dan heeft deel 1 geen afspraak.
+  if (answer === 'H' && shape(hand).S >= 4 && r.strain === 'NT') return null
+  if (isGame(reply)) return { bid: 'P', why: `Na ${level}SA bepaalt partner het contract. Partner koos ${bidLabel(reply)}: pas.` }
+  const invite = level === 1 && (reply === '2NT' || (answer !== null && answer !== 'D' && reply === call(3, answer)))
+  if (!invite) return null
+  const game = r.strain === 'NT' ? '3NT' : call(4, r.strain)
+  if (p >= 16) return { bid: game, why: `Partner nodigt uit. Met ${pts(p)} ben je niet minimaal: bied ${bidLabel(game)}.` }
+  return { bid: 'P', why: `Partner nodigt uit, maar met ${pts(p)} ben je minimaal: pas.` }
+}
+
 // ---------------------------------------------------- de 2♣ opening
 
 const topHonours = (hand: Hand, s: Suit) => cardsIn(hand, s).filter((r) => r >= 12).length
@@ -203,6 +249,8 @@ export function responseTo2C(hand: Hand): Advice | null {
 
 // ---------------------------------------------------------- tussenbieden
 
+const LENGTH_NAME: Record<number, string> = { 5: 'vijfkaart', 6: 'zeskaart', 7: 'zevenkaart', 8: 'achtkaart' }
+
 /** Rechterhandtegenstander opende 1 in een kleur; wat doe jij? */
 export function competitiveAction(opened: Suit, hand: Hand): Advice | null {
   const p = hcp(hand)
@@ -211,24 +259,30 @@ export function competitiveAction(opened: Suit, hand: Hand): Advice | null {
   const takeoutShape = sh[opened] <= 2 && others.every((s) => sh[s] >= 3)
   const o = S(opened)
 
+  const long = others.filter((s) => sh[s] >= 5)
+  // Het 1SA-volgbod is als een 1SA-opening; met een vijfkaart ernaast is het niet eenduidig.
+  if (isBalanced(hand) && p >= 15 && p <= 17 && !long.length)
+    return { bid: '1NT', why: `15-17 punten met een SA-verdeling (${pts(p)}): een 1SA-volgbod, net als een 1SA-opening.` }
   if (takeoutShape && p >= 13 && p <= 21) {
     if (isBalanced(hand) && p >= 15 && p <= 17) return null
     return { bid: 'X', why: `Openingskracht (${pts(p)}), kort in ${SUIT_NAME[opened]} en steun voor alle andere kleuren: informatiedoublet.` }
   }
-  const long = others.filter((s) => sh[s] >= 5)
   if (long.length > 1) return null
   if (long.length === 1) {
     const s = long[0]
     const good = topHonours(hand, s) >= 2 || (cardsIn(hand, s).includes(14) && cardsIn(hand, s).includes(11))
     const level = cheapestLevel(s, call(1, opened))
-    if (!good) return p <= 7 ? { bid: 'P', why: `Een volgbod doe je op een goede lange kleur. Deze kleur is te slap: pas.` } : null
+    if (!good) return p <= 12 ? { bid: 'P', why: `Een volgbod doe je op een goede lange kleur. Deze kleur is te slap: pas.` } : null
     if (sh[s] >= 6 && p >= 13 && p <= 16)
       return { bid: call(level + 1, s), why: `Een goede zeskaart met openingskracht: een sprongvolgbod, ${level + 1}${S(s)}.` }
-    if (sh[s] === 5 && p >= 8 && p <= 12 && (level === 1 || p >= 10))
-      return { bid: call(level, s), why: `Een goede vijfkaart ${SUIT_NAME[s]}: volg met ${level}${S(s)} over 1${o}.` }
+    if (p >= 8 && p <= 12 && (level === 1 || p >= 10))
+      return { bid: call(level, s), why: `Een goede ${LENGTH_NAME[sh[s]] ?? 'lange kleur'} ${SUIT_NAME[s]}: volg met ${level}${S(s)} over 1${o}.` }
     return null
   }
-  if (p <= 9 && !takeoutShape) return { bid: 'P', why: `Geen goede vijfkaart en geen doubletverdeling: je past.` }
+  // Geen vijfkaart: een volgbod kan niet, een doublet vraagt openingskracht.
+  if (p <= 12) return { bid: 'P', why: takeoutShape
+    ? `Je verdeling past bij een informatiedoublet, maar daarvoor heb je openingskracht nodig. Met ${pts(p)} pas je.`
+    : `Geen goede vijfkaart en geen doubletverdeling: je past.` }
   return null
 }
 

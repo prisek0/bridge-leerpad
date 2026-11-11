@@ -4,6 +4,8 @@ import {
   answerToDouble, competitiveAction, openingBid, responseTo2C, responseToNT, responseToSuit, staymanAnswer,
 } from './bidding'
 import { sureTricks, trickWinner } from './play'
+import { type Situation, adviseCall, chapterOf } from './auction'
+import type { Seat } from './cards'
 import { parseHolding } from './cards'
 
 const h = parseHand
@@ -82,6 +84,19 @@ describe('2♣ en tussenbieden', () => {
     expect(competitiveAction('C', h('AHB87.84.V93.852'))?.bid).toBe('1S')
     expect(competitiveAction('C', h('98762.84.V93.H52'))?.bid).toBe('P')
   })
+  it('1SA-volgbod: 15-17 met een SA-verdeling, ook met een doubletverdeling', () => {
+    expect(competitiveAction('C', h('AH4.HV9.B872.A85'))?.bid).toBe('1NT')
+    expect(competitiveAction('D', h('AH42.HV9.82.A852'))?.bid).toBe('1NT')
+  })
+  it('pas zonder goede vijfkaart en zonder openingskracht voor een doublet', () => {
+    expect(competitiveAction('C', h('AH42.V93.B72.852'))?.bid).toBe('P') // 10 punten, geen vijfkaart
+    expect(competitiveAction('C', h('AH42.V932.B762.8'))?.bid).toBe('P') // doubletverdeling, maar 10 punten
+    expect(competitiveAction('C', h('98762.AH4.V93.H5'))?.bid).toBe('P') // 12 punten, slappe vijfkaart
+  })
+  it('volgbod met een goede zeskaart', () => {
+    expect(competitiveAction('C', h('AHB876.84.932.85'))?.bid).toBe('1S')
+    expect(competitiveAction('S', h('84.AHB876.V32.85'))?.bid).toBe('2H')
+  })
   it('antwoord op het doublet', () => {
     expect(answerToDouble('H', h('9762.84.V9532.52'))?.bid).toBe('2D')
   })
@@ -117,5 +132,52 @@ describe('engine op willekeurige handen', () => {
         if (a) expect(a.why.length).toBeGreaterThan(10)
       }
     }
+  })
+})
+
+describe('verder na 1SA en 2SA (aan tafel)', () => {
+  /** Advies voor zuid, met de gegeven gever en biedingen. */
+  const at = (hand: string, dealer: Seat, calls: string[]) => {
+    const ca = adviseCall(h(hand), dealer, calls)
+    return { bid: ca.advice.bid, covered: ca.covered, chapter: chapterOf(ca.sit, ca.advice), kind: ca.sit.kind }
+  }
+  const stayman = (answer: string) => ['1NT', 'P', '2C', 'P', answer, 'P']
+
+  it.each([
+    ['V42.HB87.V853.B4', '2H', '3H'], // fit, 9 punten: uitnodigen
+    ['V42.HB87.A853.B4', '2H', '4H'], // fit, 11 punten: manche
+    ['HB87.V42.V853.B4', '2H', '2NT'], // geen fit, 9 punten
+    ['HB87.V42.A853.H4', '2D', '3NT'], // geen vierkaart hoog bij partner, 13 punten
+    ['HB87.V42.A853.H4', '2S', '4S'],
+  ])('antwoorder na Stayman: %s, partner %s → %s', (hand, answer, bid) => {
+    expect(at(hand, 'N', stayman(answer))).toMatchObject({ bid, covered: true, chapter: 'h7', kind: 'stayman-rebid' })
+  })
+
+  it('antwoorder na de transfer: zwak passen, sterker heeft deel 1 geen afspraak', () => {
+    expect(at('B4.V9862.853.742', 'N', ['1NT', 'P', '2D', 'P', '2H', 'P'])).toMatchObject({ bid: 'P', covered: true, chapter: 'h7' })
+    expect(at('A4.HV862.853.V42', 'N', ['1NT', 'P', '2D', 'P', '2H', 'P']).covered).toBe(false)
+  })
+
+  it('openaar op de uitnodiging: minimaal passen, anders de manche', () => {
+    expect(at('AH4.HV9.V872.B52', 'S', ['1NT', 'P', '2NT', 'P'])).toMatchObject({ bid: 'P', covered: true, chapter: 'h5b' })
+    expect(at('AH4.HB9.V872.A52', 'S', ['1NT', 'P', '2NT', 'P'])).toMatchObject({ bid: '3NT', covered: true, chapter: 'h5b' })
+    expect(at('AH4.HV92.V87.V52', 'S', ['1NT', 'P', '2C', 'P', '2H', 'P', '3H', 'P'])).toMatchObject({ bid: '4H', covered: true, chapter: 'h7' })
+  })
+
+  it('openaar laat de manche van partner staan', () => {
+    expect(at('AH4.HV9.V872.B52', 'S', ['1NT', 'P', '3NT', 'P'])).toMatchObject({ bid: 'P', covered: true, chapter: 'h5b' })
+    expect(at('AH4.HV92.V87.V52', 'S', ['1NT', 'P', '2C', 'P', '2H', 'P', '4H', 'P'])).toMatchObject({ bid: 'P', covered: true, chapter: 'h7' })
+    expect(at('AH42.V9.V872.AH5', 'S', ['2NT', 'P', '3C', 'P', '3S', 'P', '4S', 'P'])).toMatchObject({ bid: 'P', covered: true, chapter: 'h11' })
+  })
+
+  it('geen afspraak: beide hoge kleuren na 2♥ en 3SA, of een tussenbod', () => {
+    expect(at('AH42.HV92.V8.B52', 'S', ['1NT', 'P', '2C', 'P', '2H', 'P', '3NT', 'P']).covered).toBe(false)
+    expect(at('V42.HB87.V853.B4', 'N', ['1NT', 'P', '2C', 'P', '2H', '2S']).covered).toBe(false)
+  })
+
+  it('na een 2SA-opening hoort alles bij hoofdstuk 11', () => {
+    const sit: Situation = { kind: 'stayman-answer', level: 2 }
+    expect(chapterOf(sit, { bid: '3H', why: '' })).toBe('h11')
+    expect(at('AH42.V9.V872.AH5', 'S', ['2NT', 'P', '3C', 'P'])).toMatchObject({ bid: '3S', covered: true, chapter: 'h11' })
   })
 })
