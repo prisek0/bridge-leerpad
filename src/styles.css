@@ -493,6 +493,9 @@ h1, h2 { font-weight: 800; letter-spacing: -.02em; }
   box-shadow: 0 0 0 2px var(--felt-accent), 0 12px 20px rgba(0, 0, 0, .35);
 }
 .south { display: flex; flex-direction: column; align-items: center; }
+/* Volle breedte: de waaier meet zijn eigen breedte om de kaarten te verdelen. */
+.south .playfan { align-self: stretch; }
+.south .pname { margin-bottom: 6px; }
 .playfan .pcard:not(.tappable) { filter: none; }
 /* Alleen de opdruk vervaagt: de kaart zelf blijft dicht, anders schijnt hij over de speelbare kaart heen. */
 .playfan.active .pcard:not(.tappable) > span { opacity: .35; }

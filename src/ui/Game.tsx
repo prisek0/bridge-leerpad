@@ -98,7 +98,7 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
   const used = useRef(new Set<string>())
   const recorded = useRef(new Set<string>())
   const turnSeen = useRef('')
-  const flags = useRef({ quizDone: false, made: false, finished: false })
+  const flags = useRef({ quizDone: false, made: false, finished: false, intro: false })
   const other = useMemo(() => {
     if (mode.id !== 'club') return null
     const calls = robotAuction(setup.deal, setup.dealer)
@@ -157,8 +157,8 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
       return say({
         tone: 'bad', text: `Volgens de afspraken bied je hier ${bidLabel(ca.advice.bid)}. ${ca.advice.why}`,
         actions: [
-          { label: `Bied ${bidLabel(ca.advice.bid)}`, primary: true, run: () => makeCall(ca.advice.bid) },
-          { label: `Toch ${bidLabel(b)}`, run: () => makeCall(b) },
+          { label: `Bied ${bidLabel(ca.advice.bid)}`, primary: true, run: () => { say(null); makeCall(ca.advice.bid) } },
+          { label: `Toch ${bidLabel(b)}`, run: () => { say(null); makeCall(b) } },
         ],
       })
     }
@@ -272,6 +272,12 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
       return () => clearTimeout(id)
     }
     if (t.phase === 'done' || (t.phase === 'play' && !mode.play)) return finishDeal()
+    // Na je eigen bieding: wat er uit de bieding van de coach nog staat, maakt plaats voor het contract.
+    const intro = t.phase === 'play' && mode.bid && !t.tricks.length && !t.trick.length && !flags.current.intro
+    if (intro) {
+      flags.current.intro = true
+      say({ tone: 'info', text: introText() })
+    }
     if (t.phase === 'play' && t.trick.length === 4) {
       const id = setTimeout(() => afterTrick(collect(t)), 1050)
       return () => clearTimeout(id)
@@ -283,7 +289,7 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
         flags.current.quizDone = true
         setQuiz({ value: null, answered: false })
       }
-      if (t.phase === 'play' && !t.tricks.length && !t.trick.length && seat === 'S') {
+      if (t.phase === 'play' && !t.tricks.length && !t.trick.length && seat === 'S' && !intro) {
         say({ tone: 'info', text: `Jij komt uit tegen ${declLabel(t.contract!)}. Kies je beste kleur.` })
       }
       return
@@ -401,18 +407,21 @@ export function Game({ mode: chosen, replays, p, onExit }: { mode: Mode; replays
     recorded.current = new Set()
     turnSeen.current = ''
     readUntil.current = 0
-    flags.current = { quizDone: false, made: false, finished: false }
+    flags.current = { quizDone: false, made: false, finished: false, intro: false }
     setView('table')
   }
+
+  const introText = () => youDeclare
+    ? `Contract: ${declLabel(t.contract!)}. ${t.contract!.declarer === 'S'
+      ? 'Jij speelt beide handen: zuid én de dummy (noord).'
+      : 'Jij speelt beide handen: noord én je eigen kaarten, die nu de dummy zijn.'} ${SEAT_NAME[toAct(t)!]} komt uit.`
+    : `Contract: ${declLabel(t.contract!)}. Jij en partner (noord) spelen tegen. ${toAct(t) === 'S' ? 'Jij komt uit.' : 'Partner komt uit.'}`
 
   // Bij afspelen en tegenspelen: eerst kort het contract.
   useEffect(() => {
     if (t.phase === 'play' && !t.tricks.length && !t.trick.length && !mode.bid && view === 'table') {
-      const c = t.contract!
       const why = queue ? `Herkansing. Vorige keer: ${queue[board - 1].reason}\n` : ''
-      say({ tone: 'info', text: why + (youDeclare
-        ? `Contract: ${declLabel(c)}. Jij speelt beide handen: zuid én de dummy (noord). ${SEAT_NAME[toAct(t)!]} komt uit.`
-        : `Contract: ${declLabel(c)}. Jij en partner (noord) spelen tegen. ${toAct(t) === 'S' ? 'Jij komt uit.' : 'Partner komt uit.'}`) })
+      say({ tone: 'info', text: why + introText() })
     }
   }, [setup])
 
@@ -667,13 +676,14 @@ function fanMargins(ok: boolean[], width: number): number[] | null {
   const n = ok.length
   if (n < 2 || !width) return null
   const room = width - CARD_W
-  const even = Math.min(36, room / (n - 1))
+  // Weinig kaarten: naast elkaar met een kiertje, zodat je ze makkelijk raakt.
+  const even = Math.min(CARD_W + 4, room / (n - 1))
   const open = ok.slice(0, -1).filter(Boolean).length
   const shut = n - 1 - open
   let wide = even, narrow = even
   if (open && shut) {
     narrow = Math.min(even, 14)
-    wide = Math.max(even, Math.min(CARD_W, (room - shut * narrow) / open))
+    wide = Math.max(even, Math.min(CARD_W + 4, (room - shut * narrow) / open))
   }
   return ok.map((_, i) => (i ? (ok[i - 1] ? wide : narrow) - CARD_W : 0))
 }
