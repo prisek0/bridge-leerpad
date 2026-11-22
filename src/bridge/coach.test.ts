@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { type Card, type Deal, type Suit, parseHand } from './cards'
 import type { Bid } from './bidding'
 import { type Table, addCard, collect, tableWithAuction } from './table'
-import { checkPlay, leadAdvice, planCount } from './coach'
+import { checkPlay, commentTrick, leadAdvice, planCount } from './coach'
 import { LEAD_POOLS } from '../content/generators'
 import { parseHolding } from './cards'
 
@@ -23,6 +23,20 @@ const deal: Deal = {
 }
 
 describe('coach', () => {
+  it('introeven: alleen "trek eerst troef" als de leider al aan slag was', () => {
+    const ruffDeal: Deal = {
+      N: h('A43.A1098.AH4.1076'),
+      E: h('H8765.B76.V8765.'),
+      S: h('V2.HV52.32.B5432'),
+      W: h('B109.43.B109.AHV98'),
+    }
+    const auction: Bid[] = ['1H', 'P', '2H', 'P', 'P', 'P']
+    const first = table(ruffDeal, 'S', auction, ['AC', '6C', '6H', '2C'])
+    expect(commentTrick(first, ['S'])).toContain('niets aan doen')
+    const later = table(ruffDeal, 'S', auction, ['BD', 'AD', '5D', '2D', '6C', '6H', '2C', '8C'])
+    expect(commentTrick(later, ['S'])).toContain('eerst troef')
+    expect(commentTrick(later, ['S'])).not.toContain('niets aan doen')
+  })
   it('uitkomen volgt dezelfde regels als de oefeningen', () => {
     for (const kind of ['seq', 'low', 'high'] as const) for (const [holding, lead] of LEAD_POOLS[kind]) {
       const a = leadAdvice(parseHolding(holding).map((rank) => ({ suit: 'S' as Suit, rank })))!

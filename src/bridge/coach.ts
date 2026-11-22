@@ -222,7 +222,13 @@ export function commentTrick(t: Table, you: Seat[]): string | null {
   }
   // Introeven.
   const ruff = tr && led !== tr ? last.cards.find((p) => p.card.suit === tr && p.seat === last.winner) : null
-  if (ruff && !declSide(ruff.seat) && youDeclare) return `${SEAT_NAME[ruff.seat]} troeft je slag! Daarom trek je als leider meestal eerst troef.`
+  if (ruff && !declSide(ruff.seat) && youDeclare) {
+    // Alleen een les als de leider al aan slag was en troef had kunnen trekken.
+    const hadLead = t.tricks.some((x) => declSide(x.cards[0].seat))
+    return hadLead
+      ? `${SEAT_NAME[ruff.seat]} troeft je slag! Daarom trek je als leider meestal eerst troef.`
+      : `${SEAT_NAME[ruff.seat]} troeft. Daar kon je niets aan doen: je was nog niet aan slag. Kom je aan slag, trek dan meestal eerst troef.`
+  }
   // Troeven zijn binnen.
   if (tr && youDeclare && led === tr) {
     const ours = [...t.deal[c.declarer], ...t.deal[partnerOf(c.declarer)]].filter((x) => x.suit === tr)
